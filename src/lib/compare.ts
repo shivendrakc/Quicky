@@ -84,17 +84,35 @@ export const compareSnapshots = (
             ? settings.chairThreshold
             : settings.normalThreshold
 
+        const isFirstUpload = previous.length === 0
+
         if (!previousProduct) {
-            results.push({
-                name: currentProduct.name,
-                description: currentProduct.description,
-                category,
-                previousStock: 0,
-                currentStock: currentProduct.stock,
-                threshold,
-                action: 'new',
-                reason: 'Product not found in previous upload'
-            })
+            if (isFirstUpload) {
+                const isAbove = currentProduct.stock >= threshold
+                results.push({
+                    name: currentProduct.name,
+                    description: currentProduct.description,
+                    category,
+                    previousStock: 0,
+                    currentStock: currentProduct.stock,
+                    threshold,
+                    action: isAbove ? 'add' : 'none',
+                    reason: isAbove 
+                        ? `Initial upload: Stock ${currentProduct.stock} meets threshold ${threshold}`
+                        : `Initial upload: Stock ${currentProduct.stock} is below threshold ${threshold}`
+                })
+            } else {
+                results.push({
+                    name: currentProduct.name,
+                    description: currentProduct.description,
+                    category,
+                    previousStock: 0,
+                    currentStock: currentProduct.stock,
+                    threshold,
+                    action: 'new',
+                    reason: 'Product not found in previous upload'
+                })
+            }
             return
         }
 

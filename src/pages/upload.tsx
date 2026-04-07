@@ -11,6 +11,21 @@ const Upload = () => {
     const [status, setStatus] = useState<'idle' | 'parsing' | 'done' | 'error'>('idle')
     const [result, setResult] = useState<ParseResult | null>(null)
 
+    const [baseFileName, setBaseFileName] = useState<string | null>(localStorage.getItem('qs_current_filename'))
+    const [baseFileDate, setBaseFileDate] = useState<string | null>(localStorage.getItem('qs_current_date'))
+
+    const handleClearBaseFile = () => {
+        localStorage.removeItem('qs_current_snapshot')
+        localStorage.removeItem('qs_current_filename')
+        localStorage.removeItem('qs_current_date')
+        localStorage.removeItem('qs_previous_snapshot')
+        localStorage.removeItem('qs_previous_filename')
+        setBaseFileName(null)
+        setBaseFileDate(null)
+        setStatus('idle')
+        setResult(null)
+    }
+
     const handleFile = async (file: File) => {
         const allowedExtensions = ['.xlsx', '.xls', '.csv', '.ods']
         const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
@@ -58,7 +73,7 @@ const Upload = () => {
     }
 
     const handleCompare = () => {
-        navigate('/quick-ship/review')
+        navigate('/dashboard/review')
     }
 
     return (
@@ -66,7 +81,28 @@ const Upload = () => {
             <div className="max-w-xl mx-auto">
 
                 <h1 className="text-3xl font-semibold mb-2" style={{ color: 'var(--text-h)' }}>Upload stock file</h1>
-                <p className="text-sm mb-8" style={{ color: 'var(--text)', opacity: 0.8 }}>Upload today's NetSuite export to compare against previous</p>
+                <p className="text-sm mb-6" style={{ color: 'var(--text)', opacity: 0.8 }}>Upload today's NetSuite export to compare against previous</p>
+
+                {/* Base File Banner */}
+                {baseFileName && (
+                    <div className="mb-6 rounded-xl p-5 flex items-center justify-between shadow-sm" style={{ backgroundColor: 'var(--accent-bg)', border: '1px solid var(--border)' }}>
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-h)' }}>Active Base File</p>
+                            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{baseFileName}</p>
+                            {baseFileDate && (
+                                <p className="text-xs mt-0.5" style={{ color: 'var(--text)', opacity: 0.7 }}>
+                                    Uploaded: {new Date(baseFileDate).toLocaleString()}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            onClick={handleClearBaseFile}
+                            className="bg-red-900/10 hover:bg-red-900/30 text-[var(--text)] border border-red-900/30 hover:border-red-500/50 text-xs px-4 py-2 rounded-lg transition-all font-semibold flex items-center gap-1.5"
+                        >
+                            <span className="text-red-400">✕</span> Clear file
+                        </button>
+                    </div>
+                )}
 
                 {/* Drop zone */}
                 <div
