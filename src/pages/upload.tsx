@@ -1,220 +1,277 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { parseSpreadsheet, type ParseResult } from '../lib/parser'
-import type { Product } from '../types'
+import { supabase } from '../lib/supabase'
+
+type UploadSlot = 'base' | 'new'
 
 const Upload = () => {
     const navigate = useNavigate()
 
-    const [isDragging, setIsDragging] = useState(false)
-    const [fileName, setFileName] = useState('')
-    const [status, setStatus] = useState<'idle' | 'parsing' | 'done' | 'error'>('idle')
-    const [result, setResult] = useState<ParseResult | null>(null)
+    const [dragActiveBase, setDragActiveBase] = useState(false)
+    const [dragActiveNew, setDragActiveNew] = useState(false)
+    
+    const [statusBase, setStatusBase] = useState<'idle' | 'parsing' | 'saving' | 'done' | 'error'>('idle')
+    const [statusNew, setStatusNew] = useState<'idle' | 'parsing' | 'saving' | 'done' | 'error'>('idle')
+    
+    const [errBase, setErrBase] = useState<string | null>(null)
+    const [errNew, setErrNew] = useState<string | null>(null)
 
-    const [baseFileName, setBaseFileName] = useState<string | null>(localStorage.getItem('qs_current_filename'))
-    const [baseFileDate, setBaseFileDate] = useState<string | null>(localStorage.getItem('qs_current_date'))
+    const [baseFileName, setBaseFileName] = useState<string | null>(null)
+    const [baseFileDate, setBaseFileDate] = useState<string | null>(null)
+    
+    const [newFileName, setNewFileName] = useState<string | null>(null)
+    const [newFileDate, setNewFileDate] = useState<string | null>(null)
 
-    const handleClearBaseFile = () => {
-        localStorage.removeItem('qs_current_snapshot')
-        localStorage.removeItem('qs_current_filename')
-        localStorage.removeItem('qs_current_date')
-        localStorage.removeItem('qs_previous_snapshot')
-        localStorage.removeItem('qs_previous_filename')
-        setBaseFileName(null)
-        setBaseFileDate(null)
-        setStatus('idle')
-        setResult(null)
+    useEffect(() => {
+        const fetchUserData = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user?.user_metadata) {
+                setBaseFileName(user.user_metadata.qs_base_filename || null)
+                setBaseFileDate(user.user_metadata.qs_base_date || null)
+                setNewFileName(user.user_metadata.qs_new_filename || null)
+                setNewFileDate(user.user_metadata.qs_new_date || null)
+            }
+        }
+        fetchUserData()
+    }, [])
+
+    const handleClearSlot = async (slot: UploadSlot) => {
+        const setStatus = slot === 'base' ? setStatusBase : setStatusNew
+        setStatus('saving')
+        
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const snapshotName = slot === 'base' ? 'base_snapshot.json' : 'new_snapshot.json'
+                await supabase.storage.from('Stock_Uploads').remove([`${user.id}/${snapshotName}`])
+                
+                const updates = slot === 'base' 
+                    ? { qs_base_filename: null, qs_base_date: null }
+                    : { qs_new_filename: null, qs_new_date: null }
+                
+                await supabase.auth.updateUser({ data: updates })
+            }
+            if (slot === 'base') {
+                setBaseFileName(null)
+                setBaseFileDate(null)
+            } else {
+                setNewFileName(null)
+                setNewFileDate(null)
+            }
+        } finally {
+            setStatus('idle')
+        }
     }
 
-    const handleFile = async (file: File) => {
+    const processFile = async (file: File, slot: UploadSlot) => {
+        const setStatus = slot === 'base' ? setStatusBase : setStatusNew
+        const setErr = slot === 'base' ? setErrBase : setErrNew
+        
         const allowedExtensions = ['.xlsx', '.xls', '.csv', '.ods']
         const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
         if (!allowedExtensions.includes(ext)) {
             setStatus('error')
+            setErr("Unsupported file format.")
             return
         }
 
-        setFileName(file.name)
         setStatus('parsing')
+        setErr(null)
 
         try {
             const parsed = await parseSpreadsheet(file)
-            setResult(parsed)
-            setStatus('done')
 
-            if (parsed.valid) {
-                const existing = localStorage.getItem('qs_current_snapshot')
-                if (existing) {
-                    localStorage.setItem('qs_previous_snapshot', existing)
-                    localStorage.setItem('qs_previous_filename',
-                        localStorage.getItem('qs_current_filename') ?? ''
-                    )
-                }
-                localStorage.setItem('qs_current_snapshot', JSON.stringify(parsed.products))
-                localStorage.setItem('qs_current_filename', file.name)
-                localStorage.setItem('qs_current_date', new Date().toISOString())
+            if (!parsed.valid) {
+                 setStatus('error')
+                 setErr(`Missing columns: ${parsed.missingColumns.join(', ')}`)
+                 return
             }
 
-        } catch (err) {
+            setStatus('saving')
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) throw new Error("Not logged in")
+
+            const snapshotName = slot === 'base' ? 'base_snapshot.json' : 'new_snapshot.json'
+            const jsonBlob = new Blob([JSON.stringify(parsed.products)], { type: 'application/json' })
+            
+            const { error: uploadError } = await supabase.storage.from('Stock_Uploads').upload(
+                `${user.id}/${snapshotName}`, 
+                jsonBlob, 
+                { upsert: true }
+            )
+
+            if (uploadError) {
+                console.error("Upload error:", uploadError);
+                throw new Error(uploadError.message || "Failed to upload to Supabase bucket. Check your bucket policies.");
+            }
+
+            const newDate = new Date().toISOString()
+            const updates = slot === 'base' 
+                ? { qs_base_filename: file.name, qs_base_date: newDate }
+                : { qs_new_filename: file.name, qs_new_date: newDate }
+
+            await supabase.auth.updateUser({ data: updates })
+
+            if (slot === 'base') {
+                setBaseFileName(file.name)
+                setBaseFileDate(newDate)
+            } else {
+                setNewFileName(file.name)
+                setNewFileDate(newDate)
+            }
+            
+            setStatus('done')
+            
+            // clear success state back to idle after a bit
+            setTimeout(() => setStatus('idle'), 3000)
+            
+        } catch (err: any) {
             setStatus('error')
+            setErr(err.message || 'An error occurred processing the file')
         }
     }
 
-    const handleDrop = (e: React.DragEvent) => {
+    const handleDrop = (e: React.DragEvent, slot: UploadSlot) => {
         e.preventDefault()
-        setIsDragging(false)
+        if (slot === 'base') setDragActiveBase(false)
+        else setDragActiveNew(false)
+        
         const file = e.dataTransfer.files[0]
-        if (file) handleFile(file)
+        if (file) processFile(file, slot)
     }
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, slot: UploadSlot) => {
         const file = e.target.files?.[0]
-        if (file) handleFile(file)
+        if (file) processFile(file, slot)
     }
 
-    const handleCompare = () => {
-        navigate('/dashboard/review')
+    const renderDropZone = (slot: UploadSlot) => {
+        const isBase = slot === 'base'
+        const dragActive = isBase ? dragActiveBase : dragActiveNew
+        const status = isBase ? statusBase : statusNew
+        const err = isBase ? errBase : errNew
+        const activeName = isBase ? baseFileName : newFileName
+        const activeDate = isBase ? baseFileDate : newFileDate
+        
+        const title = isBase ? "Base File" : "New File"
+        const desc = isBase 
+            ? "Historical file to compare against" 
+            : "Latest export to analyze"
+
+        return (
+            <div className="flex-1 flex flex-col min-w-0 bg-[rgba(30,41,59,0.3)] border border-[#1e293b]/60 rounded-[2rem] p-6 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#38bdf8]/50 to-transparent opacity-0 transition-opacity"></div>
+                <div className="mb-4">
+                    <h2 className="text-xl font-bold text-[#f8fafc] flex items-center gap-2">
+                        {isBase ? '🏛️' : '🆕'} {title}
+                    </h2>
+                    <p className="text-xs font-semibold text-[#f8fafc]/50 mt-1">{desc}</p>
+                </div>
+
+                {/* Active File Banner */}
+                {activeName ? (
+                    <div className="mb-4 rounded-xl p-4 flex items-center justify-between border border-[#38bdf8]/30 bg-[#38bdf8]/5">
+                        <div className="min-w-0 pr-4">
+                            <p className="text-xs font-bold text-[#38bdf8] uppercase tracking-wider mb-1">Loaded</p>
+                            <p className="text-sm font-bold text-[#f8fafc] truncate">{activeName}</p>
+                            <p className="text-xs font-semibold text-[#f8fafc]/50 mt-0.5 truncate">
+                                {activeDate ? new Date(activeDate).toLocaleString() : ''}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => handleClearSlot(slot)}
+                            disabled={status === 'saving'}
+                            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-red-900/20 text-red-400 hover:bg-red-400 hover:text-white transition-colors disabled:opacity-50"
+                            title="Clear file"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                ) : (
+                    <div className="mb-4 rounded-xl p-4 border border-dashed border-[#1e293b] flex items-center justify-center bg-[#0f172a]/30 h-[82px]">
+                        <p className="text-xs font-bold text-[#f8fafc]/30">No file loaded</p>
+                    </div>
+                )}
+
+                {/* Drop Zone */}
+                <div
+                    onDragOver={e => { e.preventDefault(); isBase ? setDragActiveBase(true) : setDragActiveNew(true) }}
+                    onDragLeave={() => isBase ? setDragActiveBase(false) : setDragActiveNew(false)}
+                    onDrop={e => handleDrop(e, slot)}
+                    className={`flex-1 border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 flex flex-col items-center justify-center min-h-[160px] ${
+                        dragActive
+                        ? 'border-[#38bdf8] bg-[#38bdf8]/10 scale-[1.02]'
+                        : 'border-[#1e293b] hover:border-[#f8fafc]/30 bg-[rgba(30,41,59,0.3)]'
+                    }`}
+                >
+                    {status === 'parsing' || status === 'saving' ? (
+                        <div className="flex flex-col items-center justify-center">
+                            <div className="w-8 h-8 border-4 border-[#38bdf8] border-t-transparent rounded-full animate-spin mb-3"></div>
+                            <p className="text-sm font-bold text-[#38bdf8]">
+                                {status === 'parsing' ? 'Reading file...' : 'Saving to cloud...'}
+                            </p>
+                        </div>
+                    ) : status === 'done' ? (
+                        <div className="flex flex-col items-center justify-center animate-in zoom-in fade-in">
+                            <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mb-2">
+                                ✓
+                            </div>
+                            <p className="text-sm font-bold text-emerald-400">Success!</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="text-3xl mb-3 opacity-80" style={{ animation: dragActive ? 'pulse 2s infinite' : 'float 3s ease-in-out infinite' }}>📂</div>
+                            <p className="text-xs font-bold text-[#f8fafc]/70 mb-4 px-2">Drag and drop, or browse</p>
+                            <label className="bg-[#1e293b] hover:bg-[#38bdf8] hover:text-[#0f172a] text-[#f8fafc] text-xs px-5 py-2.5 rounded-lg font-bold transition-all cursor-pointer shadow-sm active:scale-95">
+                                Browse file
+                                <input
+                                    type="file"
+                                    accept=".xlsx,.xls,.csv,.ods"
+                                    onChange={e => handleInputChange(e, slot)}
+                                    className="hidden"
+                                />
+                            </label>
+                        </>
+                    )}
+                </div>
+
+                {status === 'error' && (
+                    <div className="mt-4 p-3 rounded-lg bg-red-900/20 border border-red-900/50 animate-in fade-in">
+                        <p className="text-xs font-bold text-red-400 mb-0.5">Upload failed</p>
+                        <p className="text-[11px] font-semibold text-red-300 opacity-80 line-clamp-2" title={err || ''}>{err}</p>
+                    </div>
+                )}
+            </div>
+        )
     }
 
     return (
-        <div className="min-h-screen p-8 transition-colors duration-300" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
-            <div className="max-w-xl mx-auto">
-
-                <h1 className="text-3xl font-semibold mb-2" style={{ color: 'var(--text-h)' }}>Upload stock file</h1>
-                <p className="text-sm mb-6" style={{ color: 'var(--text)', opacity: 0.8 }}>Upload today's NetSuite export to compare against previous</p>
-
-                {/* Base File Banner */}
-                {baseFileName && (
-                    <div className="mb-6 rounded-xl p-5 flex items-center justify-between shadow-sm" style={{ backgroundColor: 'var(--accent-bg)', border: '1px solid var(--border)' }}>
-                        <div>
-                            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-h)' }}>Active Base File</p>
-                            <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{baseFileName}</p>
-                            {baseFileDate && (
-                                <p className="text-xs mt-0.5" style={{ color: 'var(--text)', opacity: 0.7 }}>
-                                    Uploaded: {new Date(baseFileDate).toLocaleString()}
-                                </p>
-                            )}
-                        </div>
-                        <button
-                            onClick={handleClearBaseFile}
-                            className="bg-red-900/10 hover:bg-red-900/30 text-[var(--text)] border border-red-900/30 hover:border-red-500/50 text-xs px-4 py-2 rounded-lg transition-all font-semibold flex items-center gap-1.5"
-                        >
-                            <span className="text-red-400">✕</span> Clear file
-                        </button>
-                    </div>
-                )}
-
-                {/* Drop zone */}
-                <div
-                    onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={handleDrop}
-                    className={`border-2 border-dashed rounded-xl p-12 text-center mb-6 transition-all duration-300 ${isDragging
-                        ? 'border-[var(--accent-border)] bg-[var(--accent-bg)] scale-[1.02]'
-                        : 'border-[var(--border)] hover:border-[var(--text-h)]'
-                        }`}
-                    style={{ backgroundColor: !isDragging ? 'var(--code-bg)' : undefined }}
-                >
-                    <div className="text-4xl mb-4" style={{ animation: isDragging ? 'pulse 2s infinite' : 'float 3s ease-in-out infinite' }}>📂</div>
-                    <p className="text-lg font-medium mb-1" style={{ color: 'var(--text-h)' }}>Drop your spreadsheet file here</p>
-                    <p className="text-sm mb-6" style={{ color: 'var(--text)', opacity: 0.7 }}>or click to browse</p>
-                    <label className="primary-btn cursor-pointer inline-block !py-3 !px-6 !text-sm">
-                        Browse file
-                        <input
-                            type="file"
-                            accept=".xlsx,.xls,.csv,.ods"
-                            onChange={handleInputChange}
-                            className="hidden"
-                        />
-                    </label>
+        <div className="min-h-screen p-4 sm:p-8">
+            <div className="max-w-4xl mx-auto">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-extrabold text-[#f8fafc] tracking-tight mb-2">Configure Analysis</h1>
+                    <p className="text-sm font-semibold text-[#f8fafc]/60 max-w-xl">
+                        Upload a historical file alongside today's export. If you only upload a New File, it will exclusively check for valid initial thresholds.
+                    </p>
                 </div>
 
-                {/* Validation result */}
-                {status === 'parsing' && (
-                    <div className="rounded-xl p-6 mb-4 flex items-center justify-center space-x-3 transition-opacity" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border)' }}>
-                        <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--text-h)', borderTopColor: 'transparent' }}></div>
-                        <p className="text-sm font-medium" style={{ color: 'var(--text-h)' }}>Reading file...</p>
-                    </div>
-                )}
+                <div className="flex flex-col md:flex-row gap-6 mb-8">
+                    {renderDropZone('base')}
+                    {renderDropZone('new')}
+                </div>
 
-                {status === 'error' && (
-                    <div className="rounded-xl p-6 mb-4 animate-in fade-in slide-in-from-bottom-2" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                        <p className="text-sm font-medium text-red-700 dark:text-red-400">Invalid file</p>
-                        <p className="text-xs text-red-600 dark:text-red-300 mt-1 opacity-80">Make sure you're uploading a supported spreadsheet file (.xlsx, .xls, .csv, etc.)</p>
-                    </div>
-                )}
-
-                {status === 'done' && result && (
-                    <div className="rounded-xl p-6 mb-6 shadow-sm animate-in fade-in slide-in-from-bottom-2" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border)' }}>
-                        <p className="text-xs mb-5 font-mono flex items-center gap-2" style={{ color: 'var(--text)', opacity: 0.7 }}>
-                            <span className="text-lg">📄</span> {fileName}
-                        </p>
-
-                        {/* Column validation */}
-                        <div className="space-y-3 mb-8">
-                            {['Display Name', 'Description', 'Revesby Warehouse - SOH'].map(col => {
-                                const found = !result.missingColumns.includes(col)
-                                return (
-                                    <div key={col} className="flex items-center justify-between py-1 border-b border-dashed" style={{ borderBottomColor: 'var(--border)' }}>
-                                        <span className="text-sm font-medium" style={{ color: 'var(--text-h)' }}>{col}</span>
-                                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${found
-                                            ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800'
-                                            : 'bg-red-900/50 text-red-400 border border-red-800'
-                                            }`}>
-                                            {found ? '✓ Found' : '✕ Missing'}
-                                        </span>
-                                    </div>
-                                )
-                            })}
-                        </div>
-
-                        {/* Preview */}
-                        {result.valid && result.products.length > 0 && (
-                            <>
-                                <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-h)' }}>
-                                    Preview ({result.products.length} products)
-                                </p>
-                                <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--border)' }}>
-                                    <table className="w-full text-xs text-left">
-                                        <thead style={{ backgroundColor: 'var(--accent-bg)', borderBottom: '1px solid var(--border)' }}>
-                                            <tr>
-                                                <th className="py-3 px-4 font-semibold" style={{ color: 'var(--text-h)' }}>Product Name</th>
-                                                <th className="py-3 px-4 font-semibold text-right" style={{ color: 'var(--text-h)' }}>Stock</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {result.products.slice(0, 5).map((p: Product, i: number) => (
-                                                <tr key={i} className="border-b last:border-0 hover:bg-black/5 transition-colors" style={{ borderBottomColor: 'var(--border)' }}>
-                                                    <td className="py-3 px-4 font-medium max-w-xs truncate" style={{ color: 'var(--text)' }}>{p.name}</td>
-                                                    <td className="py-3 px-4 text-right font-mono" style={{ color: 'var(--text)' }}>{p.stock}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </>
-                        )}
-
-                        {!result.valid && (
-                            <div className="mt-4 p-4 rounded-lg bg-red-900/20 border border-red-900/50">
-                                <p className="text-sm font-medium text-red-400">
-                                    Missing expected columns: <span className="font-mono bg-red-900/50 px-1 rounded">{result.missingColumns.join(', ')}</span>
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Action button */}
-                {status === 'done' && result?.valid && (
+                {/* Compare Action */}
+                <div className="flex justify-end pt-4 border-t border-[#1e293b]/50">
                     <button
-                        onClick={handleCompare}
-                        className="primary-btn w-full flex items-center justify-center gap-2 group animate-in fade-in"
+                        onClick={() => navigate('/dashboard/review')}
+                        disabled={!newFileName && !baseFileName}
+                        className="bg-[#f8fafc] hover:bg-[#38bdf8] text-[#0f172a] shadow-lg shadow-[#f8fafc]/10 text-sm px-8 py-3.5 rounded-2xl transition-all font-extrabold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent flex items-center gap-2 group"
                     >
                         Process and compare
                         <span className="group-hover:translate-x-1 transition-transform">→</span>
                     </button>
-                )}
+                </div>
 
             </div>
         </div>

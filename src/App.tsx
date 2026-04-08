@@ -4,7 +4,9 @@ import SalesTracker from './pages/SalesTracker'
 import Settings from './pages/Settings'
 import Upload from './pages/upload'
 import Review from './pages/Review'
+import Login from './pages/Login'
 import DashboardLayout from './components/DashboardLayout'
+import ProtectedRoute from './components/ProtectedRoute'
 import './App.css'
 
 function App() {
@@ -12,12 +14,15 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
         
-        <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<SalesTracker />} />
-          <Route path="upload" element={<Upload />} />
-          <Route path="review" element={<Review />} />
-          <Route path="settings" element={<Settings />} />
+        <Route path="/dashboard" element={<ProtectedRoute />}>
+          <Route element={<DashboardLayout />}>
+            <Route index element={<SalesTracker />} />
+            <Route path="upload" element={<Upload />} />
+            <Route path="review" element={<Review />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
         </Route>
 
         {/* Legacy redirects */}
@@ -29,5 +34,6 @@ function App() {
     </BrowserRouter>
   )
 }
+
 
 export default App

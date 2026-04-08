@@ -1,8 +1,10 @@
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Upload, ListChecks, Settings, Home } from 'lucide-react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Upload, ListChecks, Settings, Home, LogOut } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function DashboardLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
 
   const getPageTitle = () => {
@@ -11,6 +13,11 @@ export default function DashboardLayout() {
     if (currentPath === '/dashboard/review') return 'Review Actions';
     if (currentPath === '/dashboard/settings') return 'Rule Settings';
     return 'Dashboard';
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
   }
 
   return (
@@ -26,49 +33,59 @@ export default function DashboardLayout() {
           </NavLink>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-8">
-          
-          <div>
-            <div className="text-xs font-bold text-[var(--text)]/50 uppercase tracking-wider mb-3 px-3">Sales</div>
-            <div className="space-y-1">
-              <NavLink 
-                to="/dashboard" 
-                end
-                className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
-              >
-                <LayoutDashboard size={18} />
-                <span>Sales Tracker</span>
-              </NavLink>
+        <nav className="flex-1 overflow-y-auto py-6 px-4 flex flex-col justify-between">
+          <div className="space-y-8">
+            <div>
+              <div className="text-xs font-bold text-[var(--text)]/50 uppercase tracking-wider mb-3 px-3">Sales</div>
+              <div className="space-y-1">
+                <NavLink 
+                  to="/dashboard" 
+                  end
+                  className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
+                >
+                  <LayoutDashboard size={18} />
+                  <span>Sales Tracker</span>
+                </NavLink>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-bold text-[var(--text)]/50 uppercase tracking-wider mb-3 px-3">Quick Ship Audit</div>
+              <div className="space-y-1">
+                <NavLink 
+                  to="/dashboard/upload" 
+                  className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
+                >
+                  <Upload size={18} />
+                  <span>Upload Stock File</span>
+                </NavLink>
+                <NavLink 
+                  to="/dashboard/review" 
+                  className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
+                >
+                  <ListChecks size={18} />
+                  <span>Review Actions</span>
+                </NavLink>
+                <NavLink 
+                  to="/dashboard/settings" 
+                  className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
+                >
+                  <Settings size={18} />
+                  <span>Rule Settings</span>
+                </NavLink>
+              </div>
             </div>
           </div>
 
-          <div>
-            <div className="text-xs font-bold text-[var(--text)]/50 uppercase tracking-wider mb-3 px-3">Quick Ship Audit</div>
-            <div className="space-y-1">
-              <NavLink 
-                to="/dashboard/upload" 
-                className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
-              >
-                <Upload size={18} />
-                <span>Upload Stock File</span>
-              </NavLink>
-              <NavLink 
-                to="/dashboard/review" 
-                className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
-              >
-                <ListChecks size={18} />
-                <span>Review Actions</span>
-              </NavLink>
-              <NavLink 
-                to="/dashboard/settings" 
-                className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
-              >
-                <Settings size={18} />
-                <span>Rule Settings</span>
-              </NavLink>
-            </div>
+          <div className="mb-4">
+            <button
+               onClick={handleLogout}
+               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            >
+              <LogOut size={18} />
+              <span>Log out</span>
+            </button>
           </div>
-
         </nav>
       </aside>
 
@@ -82,6 +99,9 @@ export default function DashboardLayout() {
             </div>
             LoungeLovers
           </NavLink>
+          <button onClick={handleLogout} className="text-red-400 hover:text-red-300">
+            <LogOut size={20} />
+          </button>
         </header>
 
         {/* Top Header Desktop (Subtle) */}
