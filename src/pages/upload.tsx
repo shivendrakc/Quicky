@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { parseSpreadsheet, type ParseResult } from '../lib/parser'
+import { parseSpreadsheet } from '../lib/parser'
 import { supabase } from '../lib/supabase'
 
 type UploadSlot = 'base' | 'new'
