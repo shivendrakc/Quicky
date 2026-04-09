@@ -84,40 +84,10 @@ export const compareSnapshots = (
             ? settings.chairThreshold
             : settings.normalThreshold
 
-        const isFirstUpload = previous.length === 0
-
-        if (!previousProduct) {
-            if (isFirstUpload) {
-                const isAbove = currentProduct.stock >= threshold
-                results.push({
-                    name: currentProduct.name,
-                    description: currentProduct.description,
-                    category,
-                    previousStock: 0,
-                    currentStock: currentProduct.stock,
-                    threshold,
-                    action: isAbove ? 'add' : 'none',
-                    reason: isAbove 
-                        ? `Initial upload: Stock ${currentProduct.stock} meets threshold ${threshold}`
-                        : `Initial upload: Stock ${currentProduct.stock} is below threshold ${threshold}`
-                })
-            } else {
-                results.push({
-                    name: currentProduct.name,
-                    description: currentProduct.description,
-                    category,
-                    previousStock: 0,
-                    currentStock: currentProduct.stock,
-                    threshold,
-                    action: 'new',
-                    reason: 'Product not found in previous upload'
-                })
-            }
-            return
-        }
+        const prevStock = previousProduct ? previousProduct.stock : 0
 
         const { action, reason } = getAction(
-            previousProduct.stock,
+            prevStock,
             currentProduct.stock,
             threshold
         )
@@ -126,7 +96,7 @@ export const compareSnapshots = (
             name: currentProduct.name,
             description: currentProduct.description,
             category,
-            previousStock: previousProduct.stock,
+            previousStock: prevStock,
             currentStock: currentProduct.stock,
             threshold,
             action,
@@ -134,25 +104,7 @@ export const compareSnapshots = (
         })
     })
 
-    previous.forEach(previousProduct => {
-        const key = previousProduct.name.trim().toLowerCase()
-        if (!currentMap.has(key)) {
-            results.push({
-                name: previousProduct.name,
-                description: previousProduct.description,
-                category: classifyProduct(
-                    previousProduct.name,
-                    previousProduct.description,
-                    settings.keywords
-                ),
-                previousStock: previousProduct.stock,
-                currentStock: 0,
-                threshold: 0,
-                action: 'unmatched',
-                reason: 'Product missing from current upload'
-            })
-        }
-    })
+
 
     return results
 }

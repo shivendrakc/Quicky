@@ -6,14 +6,11 @@ function LandingPage() {
     <div className="landing-container">
 
       <main className="hero-section">
-        <h1 className="">Lounge Lovers</h1>
+        <h1 className="">Quicky</h1>
         <div className="hero-content">
 
           <div className="cta-buttons">
-            <Link to="/dashboard" className="primary-btn inline-flex items-center justify-center no-underline">
-              Sales Tracker
-            </Link>
-            <Link to="/dashboard/upload" className="secondary-btn inline-flex items-center justify-center no-underline">
+            <Link to="/dashboard/upload" className="primary-btn inline-flex items-center justify-center no-underline">
               Quick Ship
             </Link>
           </div>

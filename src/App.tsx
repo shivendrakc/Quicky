@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
-import SalesTracker from './pages/SalesTracker'
+
 import Settings from './pages/Settings'
 import Upload from './pages/upload'
 import Review from './pages/Review'
@@ -18,7 +18,7 @@ function App() {
         
         <Route path="/dashboard" element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
-            <Route index element={<SalesTracker />} />
+            <Route index element={<Navigate to="upload" replace />} />
             <Route path="upload" element={<Upload />} />
             <Route path="review" element={<Review />} />
             <Route path="settings" element={<Settings />} />

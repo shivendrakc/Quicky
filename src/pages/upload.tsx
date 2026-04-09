@@ -107,15 +107,32 @@ const Upload = () => {
             }
 
             const newDate = new Date().toISOString()
-            const updates = slot === 'base' 
-                ? { qs_base_filename: file.name, qs_base_date: newDate }
-                : { qs_new_filename: file.name, qs_new_date: newDate }
+            let updates: any;
+            
+            if (slot === 'base') {
+                await supabase.storage.from('Stock_Uploads').remove([`${user.id}/new_snapshot.json`])
+                updates = { 
+                    qs_base_filename: file.name, 
+                    qs_base_date: newDate,
+                    qs_new_filename: null,
+                    qs_new_date: null
+                }
+            } else {
+                updates = {
+                    qs_new_filename: file.name,
+                    qs_new_date: newDate
+                }
+            }
 
             await supabase.auth.updateUser({ data: updates })
 
             if (slot === 'base') {
                 setBaseFileName(file.name)
                 setBaseFileDate(newDate)
+                setNewFileName(null)
+                setNewFileDate(null)
+                setStatusNew('idle')
+                setErrNew(null)
             } else {
                 setNewFileName(file.name)
                 setNewFileDate(newDate)

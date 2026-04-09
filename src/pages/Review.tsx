@@ -49,7 +49,10 @@ const Review = () => {
                 let previous: Product[] = []
                 let current: Product[] = []
 
-                if (baseRes.data) {
+                const hasBaseDesc = !!user.user_metadata?.qs_base_filename
+                const hasNewDesc = !!user.user_metadata?.qs_new_filename
+
+                if (hasBaseDesc && baseRes.data) {
                     try {
                         const text = await baseRes.data.text()
                         if (text) {
@@ -60,7 +63,7 @@ const Review = () => {
                     }
                 }
                 
-                if (newRes.data) {
+                if (hasNewDesc && newRes.data) {
                     try {
                         const text = await newRes.data.text()
                         if (text) {

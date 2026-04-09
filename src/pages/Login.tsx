@@ -49,7 +49,7 @@ const Login = () => {
       <div className="w-full max-w-md z-10">
         <div className="bg-[rgba(30,41,59,0.7)] backdrop-blur-xl border border-[#1e293b] p-8 sm:p-10 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-[#f8fafc] tracking-tight mb-2">LoungeLovers</h1>
+            <h1 className="text-3xl font-extrabold text-[#f8fafc] tracking-tight mb-2">Quicky</h1>
             <p className="text-sm font-semibold text-[#f8fafc]/60">
               {isSignUp ? 'Create a new account' : 'Sign in to your account'}
             </p>

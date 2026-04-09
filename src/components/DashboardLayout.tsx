@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Upload, ListChecks, Settings, Home, LogOut } from 'lucide-react';
+import { Upload, ListChecks, Settings, Home, LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function DashboardLayout() {
@@ -8,7 +8,7 @@ export default function DashboardLayout() {
   const currentPath = location.pathname;
 
   const getPageTitle = () => {
-    if (currentPath === '/dashboard') return 'Sales Tracker';
+    if (currentPath === '/dashboard') return 'Dashboard';
     if (currentPath === '/dashboard/upload') return 'Stock File Upload';
     if (currentPath === '/dashboard/review') return 'Review Actions';
     if (currentPath === '/dashboard/settings') return 'Rule Settings';
@@ -29,26 +29,12 @@ export default function DashboardLayout() {
             <div className="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center shadow-lg shadow-[var(--accent)]/20 group-hover:scale-105 transition-transform">
               <Home className="text-[var(--bg)]" size={18} />
             </div>
-            <span className="font-bold text-xl tracking-tight text-[var(--text-h)]">LoungeLovers</span>
+            <span className="font-bold text-xl tracking-tight text-[var(--text-h)]">Quicky</span>
           </NavLink>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 flex flex-col justify-between">
           <div className="space-y-8">
-            <div>
-              <div className="text-xs font-bold text-[var(--text)]/50 uppercase tracking-wider mb-3 px-3">Sales</div>
-              <div className="space-y-1">
-                <NavLink 
-                  to="/dashboard" 
-                  end
-                  className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${isActive ? 'bg-[var(--accent-bg)] text-[var(--accent)]' : 'text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]'}`}
-                >
-                  <LayoutDashboard size={18} />
-                  <span>Sales Tracker</span>
-                </NavLink>
-              </div>
-            </div>
-
             <div>
               <div className="text-xs font-bold text-[var(--text)]/50 uppercase tracking-wider mb-3 px-3">Quick Ship Audit</div>
               <div className="space-y-1">
@@ -97,7 +83,7 @@ export default function DashboardLayout() {
             <div className="w-6 h-6 rounded bg-[var(--accent)] flex items-center justify-center">
               <Home className="text-[var(--bg)]" size={12} />
             </div>
-            LoungeLovers
+            Quicky
           </NavLink>
           <button onClick={handleLogout} className="text-red-400 hover:text-red-300">
             <LogOut size={20} />
