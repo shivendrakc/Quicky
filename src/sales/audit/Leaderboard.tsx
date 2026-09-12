@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import type { LeaderboardResponse } from '../types'
+import type { LeaderboardResponse, RepMonthlyStats } from '../types'
+import { MONTH_NAMES } from '../tracker/financialYear'
+
+const TIER_LABELS: Record<RepMonthlyStats['tierReached'], string> = {
+  none: 'Below target',
+  target: 'Target',
+  tier25: '+25%',
+  tier50: '+50%',
+  tier75: '+75%',
+}
 
 const PERIODS = [
   { key: 'today', label: 'Today' },
@@ -13,6 +22,8 @@ export function Leaderboard() {
   const [period, setPeriod] = useState<(typeof PERIODS)[number]['key']>('month')
   const [data, setData] = useState<LeaderboardResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [monthlyStats, setMonthlyStats] = useState<RepMonthlyStats[] | null>(null)
+  const [monthlyError, setMonthlyError] = useState<string | null>(null)
 
   useEffect(() => {
     api
@@ -20,6 +31,15 @@ export function Leaderboard() {
       .then(setData)
       .catch((e) => setError(e.message))
   }, [period])
+
+  useEffect(() => {
+    const now = new Date()
+    api
+      .getDefaultStore()
+      .then((store) => api.getRepMonthlyStats(store.id, now.getFullYear(), now.getMonth() + 1))
+      .then(setMonthlyStats)
+      .catch((e) => setMonthlyError(e.message))
+  }, [])
 
   return (
     <div className="card">
@@ -60,6 +80,43 @@ export function Leaderboard() {
                   <td>{r.orderCount}</td>
                   <td>{(r.guardsmanAttachRate * 100).toFixed(0)}%</td>
                   <td>{(r.upholsteryAttachRate * 100).toFixed(0)}%</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      )}
+
+      <h2 style={{ marginTop: '2rem' }}>Target progress — {MONTH_NAMES[new Date().getMonth()]} {new Date().getFullYear()}</h2>
+      {monthlyError && <p className="error-text">{monthlyError}</p>}
+      {monthlyStats && (
+        <table style={{ marginTop: '1rem' }}>
+          <thead>
+            <tr>
+              <th>Rep</th>
+              <th>Actual</th>
+              <th>Target</th>
+              <th>Tier</th>
+              <th>Commission</th>
+              <th>Guardsman</th>
+            </tr>
+          </thead>
+          <tbody>
+            {monthlyStats.length === 0 ? (
+              <tr>
+                <td colSpan={6}>No reps configured yet</td>
+              </tr>
+            ) : (
+              monthlyStats.map((s) => (
+                <tr key={s.repOptionId}>
+                  <td>{s.repName}</td>
+                  <td>${s.actualSales.toFixed(2)}</td>
+                  <td>{s.individualTarget != null ? `$${s.individualTarget.toFixed(2)}` : '—'}</td>
+                  <td>{TIER_LABELS[s.tierReached]}</td>
+                  <td>${s.monthlyCommission.toFixed(2)}</td>
+                  <td>
+                    {s.guardsmanCount} (${s.guardsmanCommission.toFixed(2)})
+                  </td>
                 </tr>
               ))
             )}

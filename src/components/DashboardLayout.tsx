@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Upload, ListChecks, Settings, Home, LogOut } from 'lucide-react';
+import { Upload, ListChecks, Settings, Home, LogOut, TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function DashboardLayout() {
@@ -58,6 +58,19 @@ export default function DashboardLayout() {
                 >
                   <Settings size={18} />
                   <span>Rule Settings</span>
+                </NavLink>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-bold text-[var(--text)]/50 uppercase tracking-wider mb-3 px-3">Other modules</div>
+              <div className="space-y-1">
+                <NavLink
+                  to="/sales"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all text-[var(--text)]/80 hover:bg-[var(--code-bg)] hover:text-[var(--text-h)]"
+                >
+                  <TrendingUp size={18} />
+                  <span>Sales Tracker</span>
                 </NavLink>
               </div>
             </div>

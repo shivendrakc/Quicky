@@ -1,54 +1,55 @@
-:root {
-  --bg: #0f172a;
+/* Scoped styles for the Sales Tracker module, mounted at /sales inside the QuickShip app.
+   All selectors are scoped under .sales-app so they don't leak into QuickShip's own
+   Tailwind-based pages. Reuses QuickShip's --bg/--text/--accent/--border tokens from
+   the app-wide :root and only adds the extra tokens this module needs. */
+
+.sales-app {
   --surface: #1e293b;
   --surface-2: #273449;
-  --border: #334155;
-  --text: #f1f5f9;
   --text-dim: #94a3b8;
-  --accent: #38bdf8;
   --green: #34d399;
   --red: #f87171;
   --yellow: #fbbf24;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color-scheme: dark;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-}
-
-.app {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
 }
 
-.app-header {
+.sales-app .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 
-.app-header h1 {
+.sales-app .app-home-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.sales-app .app-home-link:hover {
+  color: var(--text);
+}
+
+.sales-app .app-header h1 {
   font-size: 1.25rem;
   margin: 0;
 }
 
-.tabs {
+.sales-app .tabs {
   display: flex;
   gap: 0.5rem;
 }
 
-.tabs button {
+.sales-app .tabs button {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -58,13 +59,13 @@ body {
   cursor: pointer;
 }
 
-.tabs button.active {
+.sales-app .tabs button.active {
   background: var(--accent);
   color: var(--bg);
   border-color: var(--accent);
 }
 
-.app-main {
+.sales-app .app-main {
   flex: 1;
   padding: 1.5rem;
   max-width: 1100px;
@@ -72,7 +73,7 @@ body {
   margin: 0 auto;
 }
 
-.card {
+.sales-app .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 1rem;
@@ -80,7 +81,7 @@ body {
   margin-bottom: 1.5rem;
 }
 
-.card h2 {
+.sales-app .card h2 {
   margin-top: 0;
   font-size: 1rem;
   text-transform: uppercase;
@@ -88,11 +89,11 @@ body {
   color: var(--text-dim);
 }
 
-button {
+.sales-app button {
   font-family: inherit;
 }
 
-.btn {
+.sales-app .btn {
   background: var(--accent);
   color: var(--bg);
   border: none;
@@ -102,12 +103,12 @@ button {
   cursor: pointer;
 }
 
-.btn:disabled {
+.sales-app .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.btn-secondary {
+.sales-app .btn-secondary {
   background: var(--surface-2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -117,7 +118,7 @@ button {
   cursor: pointer;
 }
 
-.btn-danger {
+.sales-app .btn-danger {
   background: transparent;
   color: var(--red);
   border: 1px solid var(--red);
@@ -127,11 +128,11 @@ button {
   cursor: pointer;
 }
 
-input[type='text'],
-input[type='number'],
-input[type='date'],
-select,
-textarea {
+.sales-app input[type='text'],
+.sales-app input[type='number'],
+.sales-app input[type='date'],
+.sales-app select,
+.sales-app textarea {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -142,7 +143,7 @@ textarea {
   font-family: inherit;
 }
 
-label {
+.sales-app label {
   display: block;
   font-weight: 600;
   margin-bottom: 0.5rem;
@@ -152,31 +153,31 @@ label {
   letter-spacing: 0.04em;
 }
 
-table {
+.sales-app table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
 
-th,
-td {
+.sales-app th,
+.sales-app td {
   text-align: left;
   padding: 0.6rem 0.75rem;
   border-bottom: 1px solid var(--border);
 }
 
-th {
+.sales-app th {
   color: var(--text-dim);
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.04em;
 }
 
-tr:hover td {
+.sales-app tr:hover td {
   background: var(--surface-2);
 }
 
-.badge {
+.sales-app .badge {
   display: inline-block;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
@@ -184,39 +185,39 @@ tr:hover td {
   font-weight: 700;
 }
 
-.badge-yes {
+.sales-app .badge-yes {
   background: rgba(52, 211, 153, 0.15);
   color: var(--green);
 }
 
-.badge-no {
+.sales-app .badge-no {
   background: rgba(248, 113, 113, 0.15);
   color: var(--red);
 }
 
-.badge-na {
+.sales-app .badge-na {
   background: rgba(148, 163, 184, 0.15);
   color: var(--text-dim);
 }
 
-.wizard-progress {
+.sales-app .wizard-progress {
   color: var(--text-dim);
   font-size: 0.85rem;
   margin-bottom: 1rem;
 }
 
-.wizard-actions {
+.sales-app .wizard-actions {
   display: flex;
   justify-content: space-between;
   margin-top: 2rem;
 }
 
-.yes-no-na-group {
+.sales-app .yes-no-na-group {
   display: flex;
   gap: 0.5rem;
 }
 
-.yes-no-na-group button {
+.sales-app .yes-no-na-group button {
   flex: 1;
   padding: 0.75rem;
   border-radius: 0.6rem;
@@ -227,25 +228,25 @@ tr:hover td {
   cursor: pointer;
 }
 
-.yes-no-na-group button.selected {
+.sales-app .yes-no-na-group button.selected {
   background: var(--accent);
   color: var(--bg);
   border-color: var(--accent);
 }
 
-.error-text {
+.sales-app .error-text {
   color: var(--red);
   font-size: 0.85rem;
   margin-top: 0.5rem;
 }
 
-.subnav {
+.sales-app .subnav {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
 }
 
-.subnav button {
+.sales-app .subnav button {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -255,31 +256,89 @@ tr:hover td {
   font-weight: 600;
 }
 
-.subnav button.active {
+.sales-app .subnav button.active {
   color: var(--text);
   border-color: var(--accent);
 }
 
-.stat-row {
+.sales-app .stat-row {
   display: flex;
   gap: 1.5rem;
   flex-wrap: wrap;
 }
 
-.stat {
+.sales-app .stat {
   background: var(--surface-2);
   border-radius: 0.75rem;
   padding: 1rem 1.25rem;
   min-width: 140px;
 }
 
-.stat .label {
+.sales-app .stat .label {
   color: var(--text-dim);
   font-size: 0.75rem;
   text-transform: uppercase;
 }
 
-.stat .value {
+.sales-app .stat .value {
   font-size: 1.4rem;
   font-weight: 800;
+}
+
+.sales-app .heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.sales-app .heatmap-month-label {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+
+.sales-app .heatmap-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.sales-app .heat-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sales-app .heat-pad {
+  cursor: default;
+  background: transparent;
+}
+
+.sales-app .heat-0 {
+  background: var(--surface-2);
+}
+
+.sales-app .heat-1 {
+  background: rgba(56, 189, 248, 0.25);
+}
+
+.sales-app .heat-2 {
+  background: rgba(56, 189, 248, 0.5);
+}
+
+.sales-app .heat-3 {
+  background: rgba(56, 189, 248, 0.75);
+}
+
+.sales-app .heat-4 {
+  background: var(--accent);
+}
+
+.sales-app .heat-selected {
+  outline: 2px solid var(--text);
 }

@@ -13,69 +13,22 @@
 
 .hero-section {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 48px;
+  padding: 32px 0 64px;
 }
 
 .hero-content {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
   gap: 24px;
   position: relative;
   z-index: 2;
 }
-
-
-
-
-
-.cta-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.primary-btn,
-.secondary-btn {
-  font-family: var(--sans);
-  font-size: 18px;
-  font-weight: 600;
-  padding: 16px 32px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.primary-btn {
-  background-color: var(--text-h);
-  color: var(--bg);
-  border: 2px solid var(--text-h);
-}
-
-.primary-btn:hover {
-  background-color: transparent;
-  color: var(--text-h);
-  box-shadow: var(--shadow);
-}
-
-.secondary-btn {
-  background-color: transparent;
-  color: var(--text-h);
-  border: 2px solid var(--border);
-}
-
-.secondary-btn:hover {
-  border-color: var(--text-h);
-  background-color: var(--accent-bg);
-}
-
-
-
 
 
 @keyframes float {

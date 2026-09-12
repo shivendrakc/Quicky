@@ -7,6 +7,7 @@ import Review from './pages/Review'
 import Login from './pages/Login'
 import DashboardLayout from './components/DashboardLayout'
 import ProtectedRoute from './components/ProtectedRoute'
+import SalesApp from './sales/SalesApp'
 import './App.css'
 
 function App() {
@@ -15,20 +16,22 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
-        
-        <Route path="/dashboard" element={<ProtectedRoute />}>
-          <Route element={<DashboardLayout />}>
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Navigate to="upload" replace />} />
             <Route path="upload" element={<Upload />} />
             <Route path="review" element={<Review />} />
             <Route path="settings" element={<Settings />} />
           </Route>
+
+          <Route path="/sales" element={<SalesApp />} />
         </Route>
 
         {/* Legacy redirects */}
-        <Route path="/tracker" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/tracker" element={<Navigate to="/sales" replace />} />
         <Route path="/quick-ship" element={<Navigate to="/dashboard/upload" replace />} />
-        
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
