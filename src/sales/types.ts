@@ -1,80 +1,53 @@
-export type CategoryType = 'select' | 'yes_no_na'
-
-export type CategoryOption = {
-  id: number
-  categoryId: number
-  value: string
-  position: number
-  active: boolean
-}
-
-export type Category = {
-  id: number
-  name: string
-  type: CategoryType
-  position: number
-  active: boolean
-  dependsOnCategoryId: number | null
-  dependsOnValue: string | null
-  options: CategoryOption[]
-}
-
-export type EnrichedValue = {
-  categoryId: number
-  categoryName: string
-  type: CategoryType
-  optionId: number | null
-  valueText: string | null
-  displayValue: string | null
-}
+export type GuardsmanCategory = 'none' | 'sofa' | 'dining'
+export type DeliveryType = 'metro' | 'interstate'
+export type TierReached = 'none' | 'target' | 'tier25' | 'tier50' | 'tier75'
 
 export type Order = {
   id: number
+  storeId: number
   date: string
-  orderNumber: string
-  deliveryDate: string | null
-  totalAmount: number
-  amountPaid: number
+  consultant: string
+  orderNo: string
+  casegoods: boolean
+  dining: boolean
+  upholstery: boolean
+  guardsmanCategory: GuardsmanCategory
+  declineSku: boolean
+  mto: boolean
+  delType: DeliveryType
+  total: number
+  deposit: number
+  paymentType: string | null
+  attentionRequired: boolean
   notes: string | null
-  createdAt: string
+  loggedAt: string
+  checkedAt: string | null
   updatedAt: string
-  balance: number
-  values: EnrichedValue[]
-}
-
-export type OrderValueInput = {
-  categoryId: number
-  optionId?: number | null
-  valueText?: string | null
 }
 
 export type OrderInput = {
   date: string
-  orderNumber: string
-  deliveryDate?: string | null
-  totalAmount: number
-  amountPaid: number
-  notes?: string | null
-  values: OrderValueInput[]
+  consultant: string
+  orderNo: string
+  casegoods: boolean
+  dining: boolean
+  upholstery: boolean
+  guardsmanCategory: GuardsmanCategory
+  declineSku: boolean
+  mto: boolean
+  delType: DeliveryType
+  total: number
+  deposit: number
+  paymentType: string | null
+  attentionRequired: boolean
+  notes: string | null
 }
 
-export type LeaderboardEntry = {
-  rep: string
-  revenue: number
-  orderCount: number
-  guardsmanAttachRate: number
-  upholsteryAttachRate: number
-}
-
-export type LeaderboardResponse = {
-  period: string
-  results: LeaderboardEntry[]
-}
+export type ReviewStatus = 'red' | 'yellow' | 'none' | 'green'
 
 export type Store = {
   id: number
   name: string
-  active: boolean
 }
 
 export type MonthlyTarget = {
@@ -90,32 +63,43 @@ export type ShiftWeightSettings = {
   storeId: number
   weekdayWeight: number
   weekendWeight: number
+  hurdlePct: number
+  effectiveFrom: string
+}
+
+export type StaffLoading = {
+  id: number
+  storeId: number
+  staff: string
+  loadingPct: number
   effectiveFrom: string
 }
 
 export type StaffShift = {
   id: number
   storeId: number
-  repOptionId: number
-  repName: string
+  staff: string
   year: number
   month: number
   weekdayShifts: number
   weekendShifts: number
+  hoursWorked: number
 }
 
 export type StaffMonthlyTargetSnapshot = {
   id: number
   storeId: number
-  repOptionId: number
-  repName: string
+  staff: string
   year: number
   month: number
   weekdayShifts: number
   weekendShifts: number
   weekdayWeight: number
   weekendWeight: number
-  individualTarget: number
+  hurdlePct: number
+  loadingPct: number
+  baseIndividualTarget: number
+  finalIndividualTarget: number
   tier25: number
   tier50: number
   tier75: number
@@ -127,49 +111,32 @@ export type DailySales = {
   orderCount: number
 }
 
-export type RepMonthlyStats = {
-  repOptionId: number
-  repName: string
-  year: number
-  month: number
-  actualSales: number
-  individualTarget: number | null
-  tier25: number | null
-  tier50: number | null
-  tier75: number | null
-  tierReached: 'none' | 'target' | 'tier25' | 'tier50' | 'tier75'
-  monthlyCommission: number
-  guardsmanCount: number
+export type CategoryBreakdown = {
+  casegoods: number
+  dining: number
+  upholstery: number
+  guardsmanSofa: number
+  guardsmanDining: number
+}
+
+// Actual vs. target for one staff member over an arbitrary date range (FY / quarter /
+// month / week / day, or the current month/quarter for the Rep dashboard). Computed live
+// from orders + the nearest staff_monthly_target_snapshots rows — never stored.
+export type RepRangeStats = {
+  staff: string
+  actual: number
+  target: number | null
+  pctToTarget: number | null
+  tierReached: TierReached
+  commissionEarned: number
+  upholsteryCount: number
+  guardsmanUphCount: number // Guardsman attached to Upholstery (sofa)
+  guardsmanDtCount: number // Guardsman attached to Dining
   guardsmanCommission: number
 }
 
-export type RepQuarterlyBonus = {
-  repOptionId: number
-  repName: string
-  fyStartYear: number
-  quarter: 1 | 2 | 3 | 4
-  actualSales: number
-  cumulativeTarget: number | null
-  tierReached: 'none' | 'target' | 'tier25' | 'tier50' | 'tier75'
-  bonusRate: number
-  bonusAmount: number
-}
-
-export type StatusFlags = {
-  unpaidBalances: { orderId: number; orderNumber: string; date: string; balance: number; rep: string | null }[]
-  unconfirmedDeliveries: {
-    orderId: number
-    orderNumber: string
-    date: string
-    deliveryDate: string | null
-    status: string | null
-    rep: string | null
-  }[]
-  pendingInterstateActions: {
-    orderId: number
-    orderNumber: string
-    date: string
-    actionTaken: string | null
-    rep: string | null
-  }[]
+export type StorePeriodStats = {
+  actual: number
+  target: number | null
+  pctToTarget: number | null
 }

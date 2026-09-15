@@ -73,6 +73,30 @@ export function isWeekend(dateStr: string): boolean {
   return dow === 0 || dow === 6
 }
 
+// (year, month) pairs touched by an inclusive date range, in order. Used to figure out which
+// monthly_targets / staff_monthly_target_snapshots rows a report period needs to draw from.
+export function monthsTouchedByRange(start: string, end: string): { year: number; month: number }[] {
+  const months: { year: number; month: number }[] = []
+  let y = Number(start.slice(0, 4))
+  let m = Number(start.slice(5, 7))
+  const endY = Number(end.slice(0, 4))
+  const endM = Number(end.slice(5, 7))
+  while (y < endY || (y === endY && m <= endM)) {
+    months.push({ year: y, month: m })
+    m += 1
+    if (m > 12) {
+      m = 1
+      y += 1
+    }
+  }
+  return months
+}
+
+// The subset of a given month's dates that fall within [start, end].
+export function datesInMonthWithinRange(year: number, month: number, start: string, end: string): string[] {
+  return daysInMonth(year, month).filter((d) => d >= start && d <= end)
+}
+
 export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',

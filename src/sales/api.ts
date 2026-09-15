@@ -1,250 +1,136 @@
 import { supabase } from '../lib/supabase'
 import type {
-  Category,
-  CategoryType,
+  CategoryBreakdown,
   DailySales,
-  EnrichedValue,
-  LeaderboardResponse,
+  DeliveryType,
+  GuardsmanCategory,
   MonthlyTarget,
   Order,
   OrderInput,
-  RepMonthlyStats,
-  RepQuarterlyBonus,
+  RepRangeStats,
   ShiftWeightSettings,
+  StaffLoading,
   StaffShift,
-  StatusFlags,
+  StaffMonthlyTargetSnapshot,
   Store,
+  StorePeriodStats,
 } from './types'
-import { monthDateRange, monthsOfQuarter } from './tracker/financialYear'
-import {
-  computeGuardsmanCommission,
-  computeIndividualTargets,
-  computeMonthlyCommission,
-  computeQuarterlyBonus,
-  computeTiers,
-  tierReached,
-} from './tracker/commission'
+import { computeTiers, tierReached, computeRangeCommission, computeBaseIndividualTargets, applyHurdleAndLoading, computeDailyExpected, proratedTargetShare } from './tracker/commission'
+import { datesInMonthWithinRange, monthsTouchedByRange } from './tracker/financialYear'
 
-// Drop-in replacement for the old fetch('/api/...') client.
-// Same exported shape (`api.getCategories()`, `api.createOrder()`, etc.) as before —
-// no changes needed in OrderWizard.tsx, EntryView.tsx, or the audit views.
-// Talks to Supabase directly, matching QuickShip's architecture: no backend server.
-
-type CategoryRow = {
-  id: number
-  name: string
-  type: CategoryType
-  position: number
-  active: boolean
-  depends_on_category_id: number | null
-  depends_on_value: string | null
-}
-
-type CategoryOptionRow = {
-  id: number
-  category_id: number
-  value: string
-  position: number
-  active: boolean
-}
+// Talks to Supabase directly (no backend server), matching QuickShip's architecture.
 
 type OrderRow = {
   id: number
+  store_id: number
   date: string
-  order_number: string
-  delivery_date: string | null
-  total_amount: number | string
-  amount_paid: number | string
+  consultant: string
+  order_no: string
+  casegoods: boolean
+  dining: boolean
+  upholstery: boolean
+  guardsman_category: GuardsmanCategory
+  decline_sku: boolean
+  mto: boolean
+  del_type: DeliveryType
+  total: number | string
+  deposit: number | string
+  payment_type: string | null
+  attention_required: boolean
   notes: string | null
-  created_at: string
+  logged_at: string
+  checked_at: string | null
   updated_at: string
 }
 
-type OrderValueRow = {
-  id: number
-  order_id: number
-  category_id: number
-  option_id: number | null
-  value_text: string | null
-}
-
-type StoreRow = { id: number; name: string; active: boolean }
-
-type MonthlyTargetRow = {
-  id: number
-  store_id: number
-  year: number
-  month: number
-  agreed_target: number | string
-}
-
+type StoreRow = { id: number; name: string }
+type MonthlyTargetRow = { id: number; store_id: number; year: number; month: number; agreed_target: number | string }
 type ShiftWeightSettingsRow = {
   id: number
   store_id: number
   weekday_weight: number | string
   weekend_weight: number | string
+  hurdle_pct: number | string
   effective_from: string
 }
-
+type StaffLoadingRow = { id: number; store_id: number; staff: string; loading_pct: number | string; effective_from: string }
 type StaffShiftRow = {
   id: number
   store_id: number
-  rep_option_id: number
+  staff: string
   year: number
   month: number
   weekday_shifts: number
   weekend_shifts: number
+  hours_worked: number | string
 }
-
 type SnapshotRow = {
   id: number
   store_id: number
-  rep_option_id: number
+  staff: string
   year: number
   month: number
   weekday_shifts: number
   weekend_shifts: number
   weekday_weight: number | string
   weekend_weight: number | string
-  individual_target: number | string
+  hurdle_pct: number | string
+  loading_pct: number | string
+  base_individual_target: number | string
+  final_individual_target: number | string
   tier_25: number | string
   tier_50: number | string
   tier_75: number | string
 }
 
-type Period = 'today' | 'week' | 'month' | 'all'
-
-function periodStart(period: Period): string | null {
-  const now = new Date()
-  if (period === 'all') return null
-  if (period === 'today') return now.toISOString().slice(0, 10)
-  const daysBack = period === 'week' ? 7 : 30
-  const d = new Date(now)
-  d.setDate(d.getDate() - daysBack)
-  return d.toISOString().slice(0, 10)
-}
-
-function mapOption(o: CategoryOptionRow) {
-  return { id: o.id, categoryId: o.category_id, value: o.value, position: o.position, active: o.active }
-}
-
-function mapCategory(c: CategoryRow, options: CategoryOptionRow[]): Category {
-  return {
-    id: c.id,
-    name: c.name,
-    type: c.type,
-    position: c.position,
-    active: c.active,
-    dependsOnCategoryId: c.depends_on_category_id,
-    dependsOnValue: c.depends_on_value,
-    options: options
-      .filter((o) => o.category_id === c.id)
-      .sort((a, b) => a.position - b.position)
-      .map(mapOption),
-  }
-}
-
-async function fetchAllCategories(): Promise<{ categories: CategoryRow[]; options: CategoryOptionRow[] }> {
-  const [catRes, optRes] = await Promise.all([
-    supabase.from('categories').select('*'),
-    supabase.from('category_options').select('*'),
-  ])
-  if (catRes.error) throw catRes.error
-  if (optRes.error) throw optRes.error
-  return { categories: (catRes.data ?? []) as CategoryRow[], options: (optRes.data ?? []) as CategoryOptionRow[] }
-}
-
-function enrichValues(rawValues: OrderValueRow[], categories: CategoryRow[], options: CategoryOptionRow[]): EnrichedValue[] {
-  const categoriesById = new Map(categories.map((c) => [c.id, c]))
-  const optionsById = new Map(options.map((o) => [o.id, o]))
-  return rawValues.map((v) => {
-    const category = categoriesById.get(v.category_id)
-    const option = v.option_id != null ? optionsById.get(v.option_id) : undefined
-    return {
-      categoryId: v.category_id,
-      categoryName: category?.name ?? 'Unknown',
-      type: (category?.type ?? 'yes_no_na') as CategoryType,
-      optionId: v.option_id,
-      valueText: v.value_text,
-      displayValue: option ? option.value : v.value_text,
-    }
-  })
-}
-
-function mapOrder(o: OrderRow, values: EnrichedValue[]): Order {
-  const total = Number(o.total_amount)
-  const paid = Number(o.amount_paid)
+function mapOrder(o: OrderRow): Order {
   return {
     id: o.id,
+    storeId: o.store_id,
     date: o.date,
-    orderNumber: o.order_number,
-    deliveryDate: o.delivery_date,
-    totalAmount: total,
-    amountPaid: paid,
+    consultant: o.consultant,
+    orderNo: o.order_no,
+    casegoods: o.casegoods,
+    dining: o.dining,
+    upholstery: o.upholstery,
+    guardsmanCategory: o.guardsman_category,
+    declineSku: o.decline_sku,
+    mto: o.mto,
+    delType: o.del_type,
+    total: Number(o.total),
+    deposit: Number(o.deposit),
+    paymentType: o.payment_type,
+    attentionRequired: o.attention_required,
     notes: o.notes,
-    createdAt: o.created_at,
+    loggedAt: o.logged_at,
+    checkedAt: o.checked_at,
     updatedAt: o.updated_at,
-    balance: total - paid,
-    values,
   }
 }
 
-function valueByCategoryOf(order: Order): Record<string, string | null> {
-  const map: Record<string, string | null> = {}
-  for (const v of order.values) map[v.categoryName] = v.displayValue
-  return map
-}
-
-async function loadEnrichedOrders(): Promise<Order[]> {
-  const [{ categories, options }, ordersRes, valuesRes] = await Promise.all([
-    fetchAllCategories(),
-    supabase.from('orders').select('*'),
-    supabase.from('order_values').select('*'),
-  ])
-  if (ordersRes.error) throw ordersRes.error
-  if (valuesRes.error) throw valuesRes.error
-
-  const orderRows = (ordersRes.data ?? []) as OrderRow[]
-  const valueRows = (valuesRes.data ?? []) as OrderValueRow[]
-
-  return orderRows.map((o) =>
-    mapOrder(o, enrichValues(valueRows.filter((v) => v.order_id === o.id), categories, options))
-  )
-}
-
-const SALES_REP_CATEGORY_NAME = 'Sales Rep'
-const GUARDSMAN_CATEGORY_NAME = 'Guardsman Insurance Sold'
-
-async function fetchSalesRepOptions(): Promise<{ id: number; name: string }[]> {
-  const { categories, options } = await fetchAllCategories()
-  const repCategory = categories.find((c) => c.name === SALES_REP_CATEGORY_NAME)
-  if (!repCategory) return []
-  return options
-    .filter((o) => o.category_id === repCategory.id && o.active)
-    .sort((a, b) => a.position - b.position)
-    .map((o) => ({ id: o.id, name: o.value }))
-}
-
-async function ordersInRange(start: string, end: string): Promise<Order[]> {
-  const orders = await loadEnrichedOrders()
-  return orders.filter((o) => o.date >= start && o.date <= end)
-}
-
-function actualSalesByRep(orders: Order[]): Map<string, { revenue: number; guardsmanCount: number }> {
-  const byRep = new Map<string, { revenue: number; guardsmanCount: number }>()
-  for (const order of orders) {
-    const values = valueByCategoryOf(order)
-    const rep = values[SALES_REP_CATEGORY_NAME] || 'Unassigned'
-    const entry = byRep.get(rep) ?? { revenue: 0, guardsmanCount: 0 }
-    entry.revenue += order.totalAmount
-    if (values[GUARDSMAN_CATEGORY_NAME] === 'yes') entry.guardsmanCount += 1
-    byRep.set(rep, entry)
+function orderInputToRow(storeId: number, input: OrderInput) {
+  return {
+    store_id: storeId,
+    date: input.date,
+    consultant: input.consultant,
+    order_no: input.orderNo,
+    casegoods: input.casegoods,
+    dining: input.dining,
+    upholstery: input.upholstery,
+    guardsman_category: input.guardsmanCategory,
+    decline_sku: input.declineSku,
+    mto: input.mto,
+    del_type: input.delType,
+    total: input.total,
+    deposit: input.deposit,
+    payment_type: input.paymentType,
+    attention_required: input.attentionRequired,
+    notes: input.notes,
   }
-  return byRep
 }
 
 function mapStore(s: StoreRow): Store {
-  return { id: s.id, name: s.name, active: s.active }
+  return { id: s.id, name: s.name }
 }
 
 function mapMonthlyTarget(t: MonthlyTargetRow): MonthlyTarget {
@@ -257,20 +143,46 @@ function mapShiftWeightSettings(s: ShiftWeightSettingsRow): ShiftWeightSettings 
     storeId: s.store_id,
     weekdayWeight: Number(s.weekday_weight),
     weekendWeight: Number(s.weekend_weight),
+    hurdlePct: Number(s.hurdle_pct),
     effectiveFrom: s.effective_from,
   }
 }
 
-function mapStaffShift(s: StaffShiftRow, repName: string): StaffShift {
+function mapStaffLoading(s: StaffLoadingRow): StaffLoading {
+  return { id: s.id, storeId: s.store_id, staff: s.staff, loadingPct: Number(s.loading_pct), effectiveFrom: s.effective_from }
+}
+
+function mapStaffShift(s: StaffShiftRow): StaffShift {
   return {
     id: s.id,
     storeId: s.store_id,
-    repOptionId: s.rep_option_id,
-    repName,
+    staff: s.staff,
     year: s.year,
     month: s.month,
     weekdayShifts: s.weekday_shifts,
     weekendShifts: s.weekend_shifts,
+    hoursWorked: Number(s.hours_worked),
+  }
+}
+
+function mapSnapshot(s: SnapshotRow): StaffMonthlyTargetSnapshot {
+  return {
+    id: s.id,
+    storeId: s.store_id,
+    staff: s.staff,
+    year: s.year,
+    month: s.month,
+    weekdayShifts: s.weekday_shifts,
+    weekendShifts: s.weekend_shifts,
+    weekdayWeight: Number(s.weekday_weight),
+    weekendWeight: Number(s.weekend_weight),
+    hurdlePct: Number(s.hurdle_pct),
+    loadingPct: Number(s.loading_pct),
+    baseIndividualTarget: Number(s.base_individual_target),
+    finalIndividualTarget: Number(s.final_individual_target),
+    tier25: Number(s.tier_25),
+    tier50: Number(s.tier_50),
+    tier75: Number(s.tier_75),
   }
 }
 
@@ -285,6 +197,20 @@ async function getActiveShiftWeightSettings(storeId: number, onOrBefore: string)
   if (error) throw error
   const row = (data ?? [])[0] as ShiftWeightSettingsRow | undefined
   return row ? mapShiftWeightSettings(row) : null
+}
+
+async function getActiveStaffLoading(storeId: number, staff: string, onOrBefore: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('staff_loading')
+    .select('*')
+    .eq('store_id', storeId)
+    .eq('staff', staff)
+    .lte('effective_from', onOrBefore)
+    .order('effective_from', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = (data ?? [])[0] as StaffLoadingRow | undefined
+  return row ? Number(row.loading_pct) : 0
 }
 
 async function recalcSnapshotsForPeriod(storeId: number, year: number, month: number): Promise<void> {
@@ -309,258 +235,55 @@ async function recalcSnapshotsForPeriod(storeId: number, year: number, month: nu
   const shifts = (shiftRows ?? []) as StaffShiftRow[]
   if (shifts.length === 0) return
 
-  const { start } = monthDateRange(year, month)
-  const weights = await getActiveShiftWeightSettings(storeId, start)
+  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
+  const weights = await getActiveShiftWeightSettings(storeId, monthStart)
   const weekdayWeight = weights?.weekdayWeight ?? 1
-  const weekendWeight = weights?.weekendWeight ?? 1
+  const weekendWeight = weights?.weekendWeight ?? 2.5
+  const hurdlePct = weights?.hurdlePct ?? 0.07
 
-  const individualTargets = computeIndividualTargets(
+  const baseTargets = computeBaseIndividualTargets(
     Number(target.agreed_target),
-    shifts.map((s) => ({ repOptionId: s.rep_option_id, weekdayShifts: s.weekday_shifts, weekendShifts: s.weekend_shifts })),
+    year,
+    month,
+    shifts.map((s) => ({ staff: s.staff, weekdayShifts: s.weekday_shifts, weekendShifts: s.weekend_shifts })),
     weekdayWeight,
     weekendWeight
   )
 
-  const snapshotRows = shifts.map((s) => {
-    const individualTarget = individualTargets.get(s.rep_option_id) ?? 0
-    const tiers = computeTiers(individualTarget)
-    return {
-      store_id: storeId,
-      rep_option_id: s.rep_option_id,
-      year,
-      month,
-      weekday_shifts: s.weekday_shifts,
-      weekend_shifts: s.weekend_shifts,
-      weekday_weight: weekdayWeight,
-      weekend_weight: weekendWeight,
-      individual_target: individualTarget,
-      tier_25: tiers.tier25,
-      tier_50: tiers.tier50,
-      tier_75: tiers.tier75,
-      calculated_at: new Date().toISOString(),
-    }
-  })
+  const snapshotRows = await Promise.all(
+    shifts.map(async (s) => {
+      const baseTarget = baseTargets.get(s.staff) ?? 0
+      const loadingPct = await getActiveStaffLoading(storeId, s.staff, monthStart)
+      const finalTarget = applyHurdleAndLoading(baseTarget, hurdlePct, loadingPct)
+      const tiers = computeTiers(finalTarget)
+      return {
+        store_id: storeId,
+        staff: s.staff,
+        year,
+        month,
+        weekday_shifts: s.weekday_shifts,
+        weekend_shifts: s.weekend_shifts,
+        weekday_weight: weekdayWeight,
+        weekend_weight: weekendWeight,
+        hurdle_pct: hurdlePct,
+        loading_pct: loadingPct,
+        base_individual_target: baseTarget,
+        final_individual_target: finalTarget,
+        tier_25: tiers.tier25,
+        tier_50: tiers.tier50,
+        tier_75: tiers.tier75,
+        calculated_at: new Date().toISOString(),
+      }
+    })
+  )
 
   const { error: upsertErr } = await supabase
     .from('staff_monthly_target_snapshots')
-    .upsert(snapshotRows, { onConflict: 'store_id,rep_option_id,year,month' })
+    .upsert(snapshotRows, { onConflict: 'store_id,staff,year,month' })
   if (upsertErr) throw upsertErr
 }
 
 export const api = {
-  getCategories: async (): Promise<Category[]> => {
-    const { categories, options } = await fetchAllCategories()
-    return categories.sort((a, b) => a.position - b.position).map((c) => mapCategory(c, options))
-  },
-
-  createCategory: async (name: string, type: CategoryType): Promise<Category> => {
-    const { data: existing, error: exErr } = await supabase.from('categories').select('position')
-    if (exErr) throw exErr
-    const nextPosition = (existing ?? []).reduce((max, c) => Math.max(max, c.position), -1) + 1
-    const { data, error } = await supabase
-      .from('categories')
-      .insert({ name, type, position: nextPosition })
-      .select()
-      .single()
-    if (error) throw error
-    return mapCategory(data as CategoryRow, [])
-  },
-
-  updateCategory: async (
-    id: number,
-    updates: Partial<Pick<Category, 'name' | 'position' | 'active'>>
-  ): Promise<Category> => {
-    const { data, error } = await supabase.from('categories').update(updates).eq('id', id).select().single()
-    if (error) throw error
-    const { options } = await fetchAllCategories()
-    return mapCategory(data as CategoryRow, options)
-  },
-
-  createOption: async (categoryId: number, value: string) => {
-    const { data: existing, error: exErr } = await supabase
-      .from('category_options')
-      .select('position')
-      .eq('category_id', categoryId)
-    if (exErr) throw exErr
-    const nextPosition = (existing ?? []).reduce((max, o) => Math.max(max, o.position), -1) + 1
-    const { data, error } = await supabase
-      .from('category_options')
-      .insert({ category_id: categoryId, value, position: nextPosition })
-      .select()
-      .single()
-    if (error) throw error
-    return mapOption(data as CategoryOptionRow)
-  },
-
-  updateOption: async (_categoryId: number, optionId: number, updates: { value?: string; active?: boolean }) => {
-    const { data, error } = await supabase
-      .from('category_options')
-      .update(updates)
-      .eq('id', optionId)
-      .select()
-      .single()
-    if (error) throw error
-    return mapOption(data as CategoryOptionRow)
-  },
-
-  getOrders: async (): Promise<Order[]> => {
-    const orders = await loadEnrichedOrders()
-    return orders.sort((a, b) => (a.date < b.date ? 1 : -1))
-  },
-
-  getOrder: async (id: number): Promise<Order> => {
-    const [{ categories, options }, orderRes, valuesRes] = await Promise.all([
-      fetchAllCategories(),
-      supabase.from('orders').select('*').eq('id', id).single(),
-      supabase.from('order_values').select('*').eq('order_id', id),
-    ])
-    if (orderRes.error) throw orderRes.error
-    if (valuesRes.error) throw valuesRes.error
-    const values = enrichValues((valuesRes.data ?? []) as OrderValueRow[], categories, options)
-    return mapOrder(orderRes.data as OrderRow, values)
-  },
-
-  createOrder: async (input: OrderInput): Promise<Order> => {
-    const { data: created, error } = await supabase
-      .from('orders')
-      .insert({
-        date: input.date,
-        order_number: input.orderNumber,
-        delivery_date: input.deliveryDate ?? null,
-        total_amount: input.totalAmount ?? 0,
-        amount_paid: input.amountPaid ?? 0,
-        notes: input.notes ?? null,
-      })
-      .select()
-      .single()
-    if (error) throw error
-
-    const rows = (input.values ?? []).map((v) => ({
-      order_id: created.id,
-      category_id: v.categoryId,
-      option_id: v.optionId ?? null,
-      value_text: v.valueText ?? null,
-    }))
-    if (rows.length > 0) {
-      const { error: valErr } = await supabase.from('order_values').insert(rows)
-      if (valErr) throw valErr
-    }
-
-    return api.getOrder(created.id)
-  },
-
-  updateOrder: async (id: number, input: OrderInput): Promise<Order> => {
-    const { error: updErr } = await supabase
-      .from('orders')
-      .update({
-        date: input.date,
-        order_number: input.orderNumber,
-        delivery_date: input.deliveryDate ?? null,
-        total_amount: input.totalAmount ?? 0,
-        amount_paid: input.amountPaid ?? 0,
-        notes: input.notes ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-    if (updErr) throw updErr
-
-    const { error: delErr } = await supabase.from('order_values').delete().eq('order_id', id)
-    if (delErr) throw delErr
-
-    const rows = (input.values ?? []).map((v) => ({
-      order_id: id,
-      category_id: v.categoryId,
-      option_id: v.optionId ?? null,
-      value_text: v.valueText ?? null,
-    }))
-    if (rows.length > 0) {
-      const { error: valErr } = await supabase.from('order_values').insert(rows)
-      if (valErr) throw valErr
-    }
-
-    return api.getOrder(id)
-  },
-
-  deleteOrder: async (id: number): Promise<void> => {
-    // order_values rows cascade-delete via the FK's ON DELETE CASCADE
-    const { error } = await supabase.from('orders').delete().eq('id', id)
-    if (error) throw error
-  },
-
-  getLeaderboard: async (period: string): Promise<LeaderboardResponse> => {
-    const start = periodStart(period as Period)
-    const orders = (await loadEnrichedOrders()).filter((o) => !start || o.date >= start)
-
-    const byRep = new Map<
-      string,
-      { rep: string; revenue: number; orderCount: number; guardsmanYes: number; upholsteryYes: number }
-    >()
-
-    for (const order of orders) {
-      const values = valueByCategoryOf(order)
-      const rep = values['Sales Rep'] || 'Unassigned'
-      const entry = byRep.get(rep) ?? { rep, revenue: 0, orderCount: 0, guardsmanYes: 0, upholsteryYes: 0 }
-      entry.revenue += order.totalAmount
-      entry.orderCount += 1
-      if (values['Guardsman Insurance Sold'] === 'yes') entry.guardsmanYes += 1
-      if (values['Upholstery'] === 'yes') entry.upholsteryYes += 1
-      byRep.set(rep, entry)
-    }
-
-    const results = Array.from(byRep.values())
-      .map((e) => ({
-        rep: e.rep,
-        revenue: e.revenue,
-        orderCount: e.orderCount,
-        guardsmanAttachRate: e.orderCount ? e.guardsmanYes / e.orderCount : 0,
-        upholsteryAttachRate: e.orderCount ? e.upholsteryYes / e.orderCount : 0,
-      }))
-      .sort((a, b) => b.revenue - a.revenue)
-
-    return { period, results }
-  },
-
-  getStatusFlags: async (): Promise<StatusFlags> => {
-    const orders = await loadEnrichedOrders()
-
-    const unpaidBalances = orders
-      .filter((o) => o.balance > 0)
-      .map((o) => ({
-        orderId: o.id,
-        orderNumber: o.orderNumber,
-        date: o.date,
-        balance: o.balance,
-        rep: valueByCategoryOf(o)['Sales Rep'] ?? null,
-      }))
-
-    const unconfirmedDeliveries = orders
-      .filter((o) => valueByCategoryOf(o)['Delivery Confirmed'] !== 'yes')
-      .map((o) => ({
-        orderId: o.id,
-        orderNumber: o.orderNumber,
-        date: o.date,
-        deliveryDate: o.deliveryDate,
-        status: valueByCategoryOf(o)['Delivery Confirmed'] ?? null,
-        rep: valueByCategoryOf(o)['Sales Rep'] ?? null,
-      }))
-
-    const pendingInterstateActions = orders
-      .filter(
-        (o) =>
-          valueByCategoryOf(o)['Interstate Transfer Needed'] === 'yes' &&
-          valueByCategoryOf(o)['Action Taken'] !== 'yes'
-      )
-      .map((o) => ({
-        orderId: o.id,
-        orderNumber: o.orderNumber,
-        date: o.date,
-        actionTaken: valueByCategoryOf(o)['Action Taken'] ?? null,
-        rep: valueByCategoryOf(o)['Sales Rep'] ?? null,
-      }))
-
-    return { unpaidBalances, unconfirmedDeliveries, pendingInterstateActions }
-  },
-
   getStores: async (): Promise<Store[]> => {
     const { data, error } = await supabase.from('stores').select('*').order('id')
     if (error) throw error
@@ -569,12 +292,206 @@ export const api = {
 
   getDefaultStore: async (): Promise<Store> => {
     const stores = await api.getStores()
-    const store = stores.find((s) => s.active) ?? stores[0]
+    const store = stores[0]
     if (!store) throw new Error('No store configured. Insert a row into the stores table first.')
     return store
   },
 
-  getSalesReps: fetchSalesRepOptions,
+  getKnownStaff: async (storeId: number): Promise<string[]> => {
+    const [shiftsRes, ordersRes] = await Promise.all([
+      supabase.from('staff_shifts').select('staff').eq('store_id', storeId),
+      supabase.from('orders').select('consultant').eq('store_id', storeId),
+    ])
+    if (shiftsRes.error) throw shiftsRes.error
+    if (ordersRes.error) throw ordersRes.error
+    const names = new Set<string>()
+    for (const r of (shiftsRes.data ?? []) as { staff: string }[]) names.add(r.staff)
+    for (const r of (ordersRes.data ?? []) as { consultant: string }[]) names.add(r.consultant)
+    return Array.from(names).sort((a, b) => a.localeCompare(b))
+  },
+
+  getOrders: async (): Promise<Order[]> => {
+    const { data, error } = await supabase.from('orders').select('*').order('date', { ascending: false })
+    if (error) throw error
+    return ((data ?? []) as OrderRow[]).map(mapOrder)
+  },
+
+  getOrder: async (id: number): Promise<Order> => {
+    const { data, error } = await supabase.from('orders').select('*').eq('id', id).single()
+    if (error) throw error
+    return mapOrder(data as OrderRow)
+  },
+
+  getOrdersInRange: async (start: string, end: string): Promise<Order[]> => {
+    const { data, error } = await supabase.from('orders').select('*').gte('date', start).lte('date', end)
+    if (error) throw error
+    return ((data ?? []) as OrderRow[]).map(mapOrder)
+  },
+
+  createOrder: async (storeId: number, input: OrderInput): Promise<Order> => {
+    const { data, error } = await supabase.from('orders').insert(orderInputToRow(storeId, input)).select().single()
+    if (error) throw error
+    return mapOrder(data as OrderRow)
+  },
+
+  updateOrder: async (id: number, input: OrderInput): Promise<Order> => {
+    const { data: existing, error: exErr } = await supabase.from('orders').select('store_id').eq('id', id).single()
+    if (exErr) throw exErr
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ ...orderInputToRow((existing as { store_id: number }).store_id, input), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return mapOrder(data as OrderRow)
+  },
+
+  checkOrder: async (id: number): Promise<Order> => {
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ checked_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return mapOrder(data as OrderRow)
+  },
+
+  getDailySales: async (start: string, end: string): Promise<DailySales[]> => {
+    const orders = await api.getOrdersInRange(start, end)
+    const byDate = new Map<string, { total: number; orderCount: number }>()
+    for (const o of orders) {
+      const entry = byDate.get(o.date) ?? { total: 0, orderCount: 0 }
+      entry.total += o.total
+      entry.orderCount += 1
+      byDate.set(o.date, entry)
+    }
+    return Array.from(byDate.entries()).map(([date, v]) => ({ date, total: v.total, orderCount: v.orderCount }))
+  },
+
+  getCategoryBreakdownForRange: async (start: string, end: string): Promise<CategoryBreakdown> => {
+    const orders = await api.getOrdersInRange(start, end)
+    return orders.reduce<CategoryBreakdown>(
+      (acc, o) => ({
+        casegoods: acc.casegoods + (o.casegoods ? 1 : 0),
+        dining: acc.dining + (o.dining ? 1 : 0),
+        upholstery: acc.upholstery + (o.upholstery ? 1 : 0),
+        guardsmanSofa: acc.guardsmanSofa + (o.guardsmanCategory === 'sofa' ? 1 : 0),
+        guardsmanDining: acc.guardsmanDining + (o.guardsmanCategory === 'dining' ? 1 : 0),
+      }),
+      { casegoods: 0, dining: 0, upholstery: 0, guardsmanSofa: 0, guardsmanDining: 0 }
+    )
+  },
+
+  // Store-level actual vs. target for an arbitrary date range (used by the calendar and the
+  // drill-down bars). Target is built day-by-day from each touched month's agreed_target,
+  // weighted the same way individual targets are (see computeDailyExpected) — this naturally
+  // handles whole months, quarters, the FY, or an arbitrary week/day slice.
+  getStoreStatsForRange: async (storeId: number, start: string, end: string): Promise<StorePeriodStats> => {
+    const months = monthsTouchedByRange(start, end)
+    let target = 0
+    let hasAnyTarget = false
+
+    for (const { year, month } of months) {
+      const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
+      const [targetRes, weights] = await Promise.all([
+        supabase.from('monthly_targets').select('*').eq('store_id', storeId).eq('year', year).eq('month', month).limit(1),
+        getActiveShiftWeightSettings(storeId, monthStart),
+      ])
+      if (targetRes.error) throw targetRes.error
+      const targetRow = (targetRes.data ?? [])[0] as MonthlyTargetRow | undefined
+      if (!targetRow) continue
+      hasAnyTarget = true
+
+      const overlapDates = datesInMonthWithinRange(year, month, start, end)
+      const { weekdayExpectedPerDay, weekendExpectedPerDay } = computeDailyExpected(
+        Number(targetRow.agreed_target),
+        year,
+        month,
+        weights?.weekdayWeight ?? 1,
+        weights?.weekendWeight ?? 2.5
+      )
+      for (const d of overlapDates) {
+        const dow = new Date(d + 'T00:00:00').getDay()
+        target += dow === 0 || dow === 6 ? weekendExpectedPerDay : weekdayExpectedPerDay
+      }
+    }
+
+    const orders = await api.getOrdersInRange(start, end)
+    const actual = orders.reduce((sum, o) => sum + o.total, 0)
+    const finalTarget = hasAnyTarget ? target : null
+    return { actual, target: finalTarget, pctToTarget: finalTarget ? actual / finalTarget : null }
+  },
+
+  // Per-rep actual vs. target for an arbitrary date range. Month-level ranges use the snapshot
+  // directly; shorter (week/day) ranges prorate it; longer (quarter/FY) ranges sum whole months.
+  getRepStatsForRange: async (storeId: number, start: string, end: string): Promise<RepRangeStats[]> => {
+    const months = monthsTouchedByRange(start, end)
+    const targetByStaff = new Map<string, number>()
+    const hasTargetForStaff = new Set<string>()
+
+    for (const { year, month } of months) {
+      const { data, error } = await supabase
+        .from('staff_monthly_target_snapshots')
+        .select('*')
+        .eq('store_id', storeId)
+        .eq('year', year)
+        .eq('month', month)
+      if (error) throw error
+      const overlapDates = datesInMonthWithinRange(year, month, start, end)
+      for (const row of (data ?? []) as SnapshotRow[]) {
+        const snapshot = mapSnapshot(row)
+        const share = proratedTargetShare(
+          snapshot.finalIndividualTarget,
+          snapshot.weekdayWeight,
+          snapshot.weekendWeight,
+          year,
+          month,
+          overlapDates
+        )
+        targetByStaff.set(snapshot.staff, (targetByStaff.get(snapshot.staff) ?? 0) + share)
+        hasTargetForStaff.add(snapshot.staff)
+      }
+    }
+
+    const [orders, staffNames] = await Promise.all([api.getOrdersInRange(start, end), api.getKnownStaff(storeId)])
+    const byStaff = new Map<
+      string,
+      { actual: number; upholsteryCount: number; guardsmanUphCount: number; guardsmanDtCount: number }
+    >()
+    for (const name of staffNames) byStaff.set(name, { actual: 0, upholsteryCount: 0, guardsmanUphCount: 0, guardsmanDtCount: 0 })
+    for (const o of orders) {
+      const entry = byStaff.get(o.consultant) ?? { actual: 0, upholsteryCount: 0, guardsmanUphCount: 0, guardsmanDtCount: 0 }
+      entry.actual += o.total
+      if (o.upholstery) entry.upholsteryCount += 1
+      if (o.guardsmanCategory === 'sofa') entry.guardsmanUphCount += 1
+      if (o.guardsmanCategory === 'dining') entry.guardsmanDtCount += 1
+      byStaff.set(o.consultant, entry)
+    }
+
+    return Array.from(byStaff.entries()).map(([staff, e]) => {
+      const target = hasTargetForStaff.has(staff) ? targetByStaff.get(staff) ?? 0 : null
+      const tiers = computeTiers(target ?? 0)
+      const guardsmanCommission = (e.guardsmanUphCount + e.guardsmanDtCount) * 10
+      return {
+        staff,
+        actual: e.actual,
+        target,
+        pctToTarget: target ? e.actual / target : null,
+        tierReached: target != null ? tierReached(e.actual, tiers) : 'none',
+        commissionEarned: computeRangeCommission(e.actual, target ?? 0),
+        upholsteryCount: e.upholsteryCount,
+        guardsmanUphCount: e.guardsmanUphCount,
+        guardsmanDtCount: e.guardsmanDtCount,
+        guardsmanCommission,
+      }
+    })
+  },
+
+  getEffectiveShiftWeightSettings: async (storeId: number, onOrBefore: string): Promise<ShiftWeightSettings | null> => {
+    return getActiveShiftWeightSettings(storeId, onOrBefore)
+  },
 
   getMonthlyTarget: async (storeId: number, year: number, month: number): Promise<MonthlyTarget | null> => {
     const { data, error } = await supabase
@@ -617,130 +534,81 @@ export const api = {
     storeId: number,
     weekdayWeight: number,
     weekendWeight: number,
+    hurdlePct: number,
     effectiveFrom: string
   ): Promise<ShiftWeightSettings> => {
     const { data, error } = await supabase
       .from('shift_weight_settings')
-      .insert({ store_id: storeId, weekday_weight: weekdayWeight, weekend_weight: weekendWeight, effective_from: effectiveFrom })
+      .insert({
+        store_id: storeId,
+        weekday_weight: weekdayWeight,
+        weekend_weight: weekendWeight,
+        hurdle_pct: hurdlePct,
+        effective_from: effectiveFrom,
+      })
       .select()
       .single()
     if (error) throw error
     return mapShiftWeightSettings(data as ShiftWeightSettingsRow)
   },
 
+  getStaffLoading: async (storeId: number): Promise<StaffLoading[]> => {
+    const { data, error } = await supabase
+      .from('staff_loading')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('effective_from', { ascending: false })
+    if (error) throw error
+    return ((data ?? []) as StaffLoadingRow[]).map(mapStaffLoading)
+  },
+
+  setStaffLoading: async (storeId: number, staff: string, loadingPct: number, effectiveFrom: string): Promise<StaffLoading> => {
+    const { data, error } = await supabase
+      .from('staff_loading')
+      .upsert(
+        { store_id: storeId, staff, loading_pct: loadingPct, effective_from: effectiveFrom },
+        { onConflict: 'store_id,staff,effective_from' }
+      )
+      .select()
+      .single()
+    if (error) throw error
+    return mapStaffLoading(data as StaffLoadingRow)
+  },
+
   getStaffShifts: async (storeId: number, year: number, month: number): Promise<StaffShift[]> => {
-    const [reps, shiftsRes] = await Promise.all([
-      fetchSalesRepOptions(),
-      supabase.from('staff_shifts').select('*').eq('store_id', storeId).eq('year', year).eq('month', month),
-    ])
-    if (shiftsRes.error) throw shiftsRes.error
-    const repsById = new Map(reps.map((r) => [r.id, r.name]))
-    return ((shiftsRes.data ?? []) as StaffShiftRow[]).map((s) => mapStaffShift(s, repsById.get(s.rep_option_id) ?? 'Unknown'))
+    const { data, error } = await supabase
+      .from('staff_shifts')
+      .select('*')
+      .eq('store_id', storeId)
+      .eq('year', year)
+      .eq('month', month)
+    if (error) throw error
+    return ((data ?? []) as StaffShiftRow[]).map(mapStaffShift)
   },
 
   upsertStaffShift: async (
     storeId: number,
-    repOptionId: number,
+    staff: string,
     year: number,
     month: number,
     weekdayShifts: number,
-    weekendShifts: number
+    weekendShifts: number,
+    hoursWorked: number
   ): Promise<void> => {
     const { error } = await supabase.from('staff_shifts').upsert(
       {
         store_id: storeId,
-        rep_option_id: repOptionId,
+        staff,
         year,
         month,
         weekday_shifts: weekdayShifts,
         weekend_shifts: weekendShifts,
+        hours_worked: hoursWorked,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'store_id,rep_option_id,year,month' }
+      { onConflict: 'store_id,staff,year,month' }
     )
     if (error) throw error
     await recalcSnapshotsForPeriod(storeId, year, month)
-  },
-
-  getDailySales: async (start: string, end: string): Promise<DailySales[]> => {
-    const orders = await ordersInRange(start, end)
-    const byDate = new Map<string, { total: number; orderCount: number }>()
-    for (const o of orders) {
-      const entry = byDate.get(o.date) ?? { total: 0, orderCount: 0 }
-      entry.total += o.totalAmount
-      entry.orderCount += 1
-      byDate.set(o.date, entry)
-    }
-    return Array.from(byDate.entries()).map(([date, v]) => ({ date, total: v.total, orderCount: v.orderCount }))
-  },
-
-  getRepMonthlyStats: async (storeId: number, year: number, month: number): Promise<RepMonthlyStats[]> => {
-    const { start, end } = monthDateRange(year, month)
-    const [reps, orders, snapshotRes] = await Promise.all([
-      fetchSalesRepOptions(),
-      ordersInRange(start, end),
-      supabase.from('staff_monthly_target_snapshots').select('*').eq('store_id', storeId).eq('year', year).eq('month', month),
-    ])
-    if (snapshotRes.error) throw snapshotRes.error
-    const snapshotsByRep = new Map(((snapshotRes.data ?? []) as SnapshotRow[]).map((s) => [s.rep_option_id, s]))
-    const actualsByRep = actualSalesByRep(orders)
-
-    return reps.map((rep) => {
-      const snapshot = snapshotsByRep.get(rep.id)
-      const actual = actualsByRep.get(rep.name) ?? { revenue: 0, guardsmanCount: 0 }
-      const individualTarget = snapshot ? Number(snapshot.individual_target) : null
-      const tiers = snapshot
-        ? { target: individualTarget as number, tier25: Number(snapshot.tier_25), tier50: Number(snapshot.tier_50), tier75: Number(snapshot.tier_75) }
-        : null
-      const reached = tiers ? tierReached(actual.revenue, tiers) : 'none'
-      return {
-        repOptionId: rep.id,
-        repName: rep.name,
-        year,
-        month,
-        actualSales: actual.revenue,
-        individualTarget,
-        tier25: tiers?.tier25 ?? null,
-        tier50: tiers?.tier50 ?? null,
-        tier75: tiers?.tier75 ?? null,
-        tierReached: reached,
-        monthlyCommission: individualTarget != null ? computeMonthlyCommission(actual.revenue, individualTarget) : 0,
-        guardsmanCount: actual.guardsmanCount,
-        guardsmanCommission: computeGuardsmanCommission(actual.guardsmanCount),
-      }
-    })
-  },
-
-  getRepQuarterlyBonus: async (storeId: number, fyStartYear: number, quarter: 1 | 2 | 3 | 4): Promise<RepQuarterlyBonus[]> => {
-    const months = monthsOfQuarter(fyStartYear, quarter)
-    const monthlyStats = await Promise.all(months.map((m) => api.getRepMonthlyStats(storeId, m.year, m.month)))
-
-    const byRep = new Map<number, { repName: string; actualSales: number; targetSum: number; hasTarget: boolean }>()
-    for (const monthStats of monthlyStats) {
-      for (const s of monthStats) {
-        const entry = byRep.get(s.repOptionId) ?? { repName: s.repName, actualSales: 0, targetSum: 0, hasTarget: false }
-        entry.actualSales += s.actualSales
-        if (s.individualTarget != null) {
-          entry.targetSum += s.individualTarget
-          entry.hasTarget = true
-        }
-        byRep.set(s.repOptionId, entry)
-      }
-    }
-
-    return Array.from(byRep.entries()).map(([repOptionId, e]) => {
-      const bonus = computeQuarterlyBonus(e.actualSales, e.hasTarget ? e.targetSum : 0)
-      return {
-        repOptionId,
-        repName: e.repName,
-        fyStartYear,
-        quarter,
-        actualSales: e.actualSales,
-        cumulativeTarget: e.hasTarget ? e.targetSum : null,
-        tierReached: bonus.tierReached,
-        bonusRate: bonus.bonusRate,
-        bonusAmount: bonus.bonusAmount,
-      }
-    })
   },
 }

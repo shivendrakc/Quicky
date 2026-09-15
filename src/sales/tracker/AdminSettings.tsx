@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import type { ShiftWeightSettings, Store } from '../types'
+import type { ShiftWeightSettings, StaffLoading, Store } from '../types'
 import { MONTH_NAMES } from './financialYear'
 
-type SubTab = 'targets' | 'shifts' | 'weights'
+type SubTab = 'targets' | 'shifts' | 'weights' | 'loading'
 
 export function AdminSettings() {
   const [store, setStore] = useState<Store | null>(null)
@@ -30,11 +30,15 @@ export function AdminSettings() {
         <button className={subTab === 'weights' ? 'active' : ''} onClick={() => setSubTab('weights')}>
           Shift weights
         </button>
+        <button className={subTab === 'loading' ? 'active' : ''} onClick={() => setSubTab('loading')}>
+          Rep loading
+        </button>
       </nav>
 
       {subTab === 'targets' && <TargetEntry storeId={store.id} />}
       {subTab === 'shifts' && <ShiftEntry storeId={store.id} />}
       {subTab === 'weights' && <WeightSettings storeId={store.id} />}
+      {subTab === 'loading' && <LoadingSettings storeId={store.id} />}
     </div>
   )
 }
@@ -120,72 +124,101 @@ function ShiftEntry({ storeId }: { storeId: number }) {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
-  const [reps, setReps] = useState<{ id: number; name: string }[]>([])
-  const [values, setValues] = useState<Record<number, { weekday: string; weekend: string }>>({})
-  const [savingId, setSavingId] = useState<number | null>(null)
+  const [names, setNames] = useState<string[]>([])
+  const [newName, setNewName] = useState('')
+  const [values, setValues] = useState<Record<string, { weekday: string; weekend: string; hours: string }>>({})
+  const [savingStaff, setSavingStaff] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([api.getSalesReps(), api.getStaffShifts(storeId, year, month)])
-      .then(([repList, shifts]) => {
-        setReps(repList)
-        const next: Record<number, { weekday: string; weekend: string }> = {}
-        for (const r of repList) {
-          const shift = shifts.find((s) => s.repOptionId === r.id)
-          next[r.id] = { weekday: String(shift?.weekdayShifts ?? 0), weekend: String(shift?.weekendShifts ?? 0) }
+    Promise.all([api.getKnownStaff(storeId), api.getStaffShifts(storeId, year, month)])
+      .then(([staffList, shifts]) => {
+        setNames(staffList)
+        const next: Record<string, { weekday: string; weekend: string; hours: string }> = {}
+        for (const s of staffList) {
+          const shift = shifts.find((sh) => sh.staff === s)
+          next[s] = {
+            weekday: String(shift?.weekdayShifts ?? 0),
+            weekend: String(shift?.weekendShifts ?? 0),
+            hours: String(shift?.hoursWorked ?? 0),
+          }
         }
         setValues(next)
       })
       .catch((e) => setError(e.message))
   }, [storeId, year, month])
 
-  async function save(repId: number) {
-    setSavingId(repId)
+  async function save(staff: string) {
+    setSavingStaff(staff)
     setError(null)
     try {
-      const v = values[repId]
-      await api.upsertStaffShift(storeId, repId, year, month, Number(v.weekday) || 0, Number(v.weekend) || 0)
+      const v = values[staff]
+      await api.upsertStaffShift(storeId, staff, year, month, Number(v.weekday) || 0, Number(v.weekend) || 0, Number(v.hours) || 0)
     } catch (e) {
       setError((e as Error).message)
     } finally {
-      setSavingId(null)
+      setSavingStaff(null)
     }
+  }
+
+  function addStaff() {
+    const name = newName.trim()
+    if (!name || names.includes(name)) return
+    setNames((prev) => [...prev, name])
+    setValues((prev) => ({ ...prev, [name]: { weekday: '0', weekend: '0', hours: '0' } }))
+    setNewName('')
   }
 
   return (
     <div style={{ marginTop: '1.25rem' }}>
       <MonthYearPicker year={year} month={month} onYear={setYear} onMonth={setMonth} />
       {error && <p className="error-text">{error}</p>}
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', maxWidth: '360px' }}>
+        <input type="text" placeholder="New staff name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+        <button className="btn-secondary" onClick={addStaff}>
+          Add
+        </button>
+      </div>
+
       <table style={{ marginTop: '1rem' }}>
         <thead>
           <tr>
             <th>Rep</th>
             <th>Weekday shifts</th>
             <th>Weekend shifts</th>
+            <th>Hours worked</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {reps.map((r) => (
-            <tr key={r.id}>
-              <td>{r.name}</td>
+          {names.map((s) => (
+            <tr key={s}>
+              <td>{s}</td>
               <td>
                 <input
                   type="number"
-                  value={values[r.id]?.weekday ?? '0'}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [r.id]: { ...prev[r.id], weekday: e.target.value } }))}
+                  value={values[s]?.weekday ?? '0'}
+                  onChange={(e) => setValues((prev) => ({ ...prev, [s]: { ...prev[s], weekday: e.target.value } }))}
                 />
               </td>
               <td>
                 <input
                   type="number"
-                  value={values[r.id]?.weekend ?? '0'}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [r.id]: { ...prev[r.id], weekend: e.target.value } }))}
+                  value={values[s]?.weekend ?? '0'}
+                  onChange={(e) => setValues((prev) => ({ ...prev, [s]: { ...prev[s], weekend: e.target.value } }))}
                 />
               </td>
               <td>
-                <button className="btn-secondary" disabled={savingId === r.id} onClick={() => save(r.id)}>
-                  {savingId === r.id ? 'Saving…' : 'Save'}
+                <input
+                  type="number"
+                  value={values[s]?.hours ?? '0'}
+                  onChange={(e) => setValues((prev) => ({ ...prev, [s]: { ...prev[s], hours: e.target.value } }))}
+                />
+              </td>
+              <td>
+                <button className="btn-secondary" disabled={savingStaff === s} onClick={() => save(s)}>
+                  {savingStaff === s ? 'Saving…' : 'Save'}
                 </button>
               </td>
             </tr>
@@ -199,7 +232,8 @@ function ShiftEntry({ storeId }: { storeId: number }) {
 function WeightSettings({ storeId }: { storeId: number }) {
   const [history, setHistory] = useState<ShiftWeightSettings[]>([])
   const [weekday, setWeekday] = useState('1')
-  const [weekend, setWeekend] = useState('1')
+  const [weekend, setWeekend] = useState('2.5')
+  const [hurdle, setHurdle] = useState('0.07')
   const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -214,7 +248,7 @@ function WeightSettings({ storeId }: { storeId: number }) {
     setSaving(true)
     setError(null)
     try {
-      await api.addShiftWeightSettings(storeId, Number(weekday) || 1, Number(weekend) || 1, effectiveFrom)
+      await api.addShiftWeightSettings(storeId, Number(weekday) || 1, Number(weekend) || 2.5, Number(hurdle) || 0, effectiveFrom)
       refresh()
     } catch (e) {
       setError((e as Error).message)
@@ -228,7 +262,7 @@ function WeightSettings({ storeId }: { storeId: number }) {
       <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
         New settings apply from the effective date forward. Past months already calculated keep their frozen weights.
       </p>
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', maxWidth: '600px' }}>
+      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', maxWidth: '700px' }}>
         <div>
           <label>Weekday weight</label>
           <input type="number" value={weekday} onChange={(e) => setWeekday(e.target.value)} />
@@ -236,6 +270,10 @@ function WeightSettings({ storeId }: { storeId: number }) {
         <div>
           <label>Weekend weight</label>
           <input type="number" value={weekend} onChange={(e) => setWeekend(e.target.value)} />
+        </div>
+        <div>
+          <label>Hurdle %</label>
+          <input type="number" step="0.01" value={hurdle} onChange={(e) => setHurdle(e.target.value)} />
         </div>
         <div>
           <label>Effective from</label>
@@ -253,12 +291,13 @@ function WeightSettings({ storeId }: { storeId: number }) {
             <th>Effective from</th>
             <th>Weekday weight</th>
             <th>Weekend weight</th>
+            <th>Hurdle %</th>
           </tr>
         </thead>
         <tbody>
           {history.length === 0 ? (
             <tr>
-              <td colSpan={3}>No weight settings yet — defaults to 1:1 until one is added.</td>
+              <td colSpan={4}>No weight settings yet — defaults to weekday 1 / weekend 2.5 / hurdle 7% until one is added.</td>
             </tr>
           ) : (
             history.map((h) => (
@@ -266,6 +305,104 @@ function WeightSettings({ storeId }: { storeId: number }) {
                 <td>{h.effectiveFrom}</td>
                 <td>{h.weekdayWeight}</td>
                 <td>{h.weekendWeight}</td>
+                <td>{(h.hurdlePct * 100).toFixed(1)}%</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function LoadingSettings({ storeId }: { storeId: number }) {
+  const [names, setNames] = useState<string[]>([])
+  const [history, setHistory] = useState<StaffLoading[]>([])
+  const [staff, setStaff] = useState('')
+  const [loadingPct, setLoadingPct] = useState('0')
+  const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function refresh() {
+    api.getStaffLoading(storeId).then(setHistory).catch((e) => setError(e.message))
+  }
+
+  useEffect(() => {
+    api
+      .getKnownStaff(storeId)
+      .then((list) => {
+        setNames(list)
+        if (list.length > 0) setStaff((prev) => prev || list[0])
+      })
+      .catch((e) => setError(e.message))
+    refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId])
+
+  async function save() {
+    if (!staff) return
+    setSaving(true)
+    setError(null)
+    try {
+      await api.setStaffLoading(storeId, staff, Number(loadingPct) || 0, effectiveFrom)
+      refresh()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ marginTop: '1.25rem' }}>
+      <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+        Per-rep loading percentage, applied on top of the hurdle when calculating that rep's individual target.
+      </p>
+      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', maxWidth: '700px' }}>
+        <div>
+          <label>Rep</label>
+          <select value={staff} onChange={(e) => setStaff(e.target.value)} style={{ width: 'auto' }}>
+            {names.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label>Loading %</label>
+          <input type="number" step="0.01" value={loadingPct} onChange={(e) => setLoadingPct(e.target.value)} />
+        </div>
+        <div>
+          <label>Effective from</label>
+          <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
+        </div>
+      </div>
+      <button className="btn" style={{ marginTop: '1rem' }} disabled={saving} onClick={save}>
+        {saving ? 'Saving…' : 'Save loading'}
+      </button>
+      {error && <p className="error-text">{error}</p>}
+
+      <table style={{ marginTop: '1.5rem' }}>
+        <thead>
+          <tr>
+            <th>Rep</th>
+            <th>Effective from</th>
+            <th>Loading %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {history.length === 0 ? (
+            <tr>
+              <td colSpan={3}>No loading set yet — defaults to 0% until one is added.</td>
+            </tr>
+          ) : (
+            history.map((h) => (
+              <tr key={h.id}>
+                <td>{h.staff}</td>
+                <td>{h.effectiveFrom}</td>
+                <td>{(h.loadingPct * 100).toFixed(1)}%</td>
               </tr>
             ))
           )}

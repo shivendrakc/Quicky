@@ -342,3 +342,156 @@
 .sales-app .heat-selected {
   outline: 2px solid var(--text);
 }
+
+.sales-app .log-sale-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem 1.5rem;
+  margin-top: 1.25rem;
+}
+
+.sales-app .status-red {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--red);
+}
+
+.sales-app .status-yellow {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--yellow);
+}
+
+.sales-app .status-green {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--green);
+}
+
+.sales-app .status-none {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-dim);
+}
+
+.sales-app .month-calendar {
+  margin-top: 1.25rem;
+}
+
+.sales-app .month-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sales-app .month-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.sales-app .month-calendar-weekday-label {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  padding-bottom: 0.35rem;
+}
+
+.sales-app .month-day-cell {
+  aspect-ratio: 1;
+  border-radius: 0.5rem;
+  border: none;
+  padding: 0.4rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--text);
+  font-size: 0.7rem;
+  text-align: left;
+}
+
+.sales-app .month-day-cell .day-number {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.sales-app .month-day-cell .day-total {
+  font-size: 0.65rem;
+  opacity: 0.9;
+}
+
+.sales-app .month-day-cell.day-empty {
+  cursor: default;
+  background: transparent;
+}
+
+.sales-app .perf-under {
+  background: rgba(248, 113, 113, 0.35);
+}
+
+.sales-app .perf-near {
+  background: rgba(251, 191, 36, 0.35);
+}
+
+.sales-app .perf-over {
+  background: rgba(52, 211, 153, 0.35);
+}
+
+.sales-app .perf-none {
+  background: var(--surface-2);
+}
+
+.sales-app .bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  height: 220px;
+  margin-top: 1.5rem;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sales-app .bar-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  cursor: pointer;
+  position: relative;
+}
+
+.sales-app .bar-chart-bar {
+  width: 60%;
+  border-radius: 0.4rem 0.4rem 0 0;
+  min-height: 2px;
+  position: relative;
+}
+
+.sales-app .bar-chart-target-line {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: var(--text);
+}
+
+.sales-app .bar-chart-label {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.sales-app .breadcrumb {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0 1.25rem;
+  align-items: center;
+}
+
+.sales-app .breadcrumb-sep {
+  color: var(--text-dim);
+}

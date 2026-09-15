@@ -1,5 +1,0 @@
-tablename,policyname,cmd,qual,with_check
-categories,authenticated full access,ALL,(auth.role() = 'authenticated'::text),(auth.role() = 'authenticated'::text)
-category_options,authenticated full access,ALL,(auth.role() = 'authenticated'::text),(auth.role() = 'authenticated'::text)
-order_values,authenticated full access,ALL,(auth.role() = 'authenticated'::text),(auth.role() = 'authenticated'::text)
-orders,authenticated full access,ALL,(auth.role() = 'authenticated'::text),(auth.role() = 'authenticated'::text)

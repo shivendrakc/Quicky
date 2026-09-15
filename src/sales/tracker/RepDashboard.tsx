@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import type { RepMonthlyStats, RepQuarterlyBonus } from '../types'
-import { MONTH_NAMES, fyStartYearForDate, quarterOfMonth } from './financialYear'
+import type { RepRangeStats, TierReached } from '../types'
+import { computeQuarterlyBonus } from './commission'
+import { MONTH_NAMES, daysInMonth, fyStartYearForDate, monthsOfQuarter, quarterOfMonth } from './financialYear'
 
-const TIER_LABELS: Record<RepMonthlyStats['tierReached'], string> = {
+const TIER_LABELS: Record<TierReached, string> = {
   none: 'Below target',
   target: 'Target',
   tier25: '+25%',
@@ -11,51 +12,89 @@ const TIER_LABELS: Record<RepMonthlyStats['tierReached'], string> = {
   tier75: '+75%',
 }
 
-export function RepDashboard() {
+export function RepDashboard({ initialStaff }: { initialStaff?: string }) {
   const now = new Date()
-  const [reps, setReps] = useState<{ id: number; name: string }[]>([])
-  const [repId, setRepId] = useState<number | null>(null)
+  const [reps, setReps] = useState<string[]>([])
+  const [staff, setStaff] = useState<string | null>(initialStaff ?? null)
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
-  const [stats, setStats] = useState<RepMonthlyStats | null>(null)
-  const [quarterly, setQuarterly] = useState<RepQuarterlyBonus | null>(null)
+  const [monthly, setMonthly] = useState<RepRangeStats | null>(null)
+  const [quarterly, setQuarterly] = useState<{
+    quarter: number
+    fyStartYear: number
+    actual: number
+    target: number | null
+    tierReached: TierReached
+    bonusRate: number
+    bonusAmount: number
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.getSalesReps().then((r) => {
-      setReps(r)
-      if (r.length > 0) setRepId(r[0].id)
-    })
+    if (initialStaff) setStaff(initialStaff)
+  }, [initialStaff])
+
+  useEffect(() => {
+    api
+      .getDefaultStore()
+      .then((store) => api.getKnownStaff(store.id))
+      .then((names) => {
+        setReps(names)
+        if (!staff && names.length > 0) setStaff(names[0])
+      })
+      .catch((e) => setError(e.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    if (repId == null) return
-    let store: { id: number }
+    if (!staff) return
+    let cancelled = false
     api
       .getDefaultStore()
-      .then((s) => {
-        store = s
-        return api.getRepMonthlyStats(s.id, year, month)
-      })
-      .then((all) => {
-        setStats(all.find((s) => s.repOptionId === repId) ?? null)
+      .then(async (store) => {
+        const monthDates = daysInMonth(year, month)
+        const monthStats = await api.getRepStatsForRange(store.id, monthDates[0], monthDates[monthDates.length - 1])
+        if (cancelled) return
+        setMonthly(monthStats.find((s) => s.staff === staff) ?? null)
+
         const fyStartYear = fyStartYearForDate(new Date(year, month - 1, 1))
         const quarter = quarterOfMonth(fyStartYear, year, month)
-        return api.getRepQuarterlyBonus(store.id, fyStartYear, quarter)
+        const qMonths = monthsOfQuarter(fyStartYear, quarter)
+        const qStart = daysInMonth(qMonths[0].year, qMonths[0].month)[0]
+        const qEndDates = daysInMonth(qMonths[2].year, qMonths[2].month)
+        const qEnd = qEndDates[qEndDates.length - 1]
+        const quarterStats = await api.getRepStatsForRange(store.id, qStart, qEnd)
+        if (cancelled) return
+        const repQuarter = quarterStats.find((s) => s.staff === staff)
+        const bonus = computeQuarterlyBonus(repQuarter?.actual ?? 0, repQuarter?.target ?? 0)
+        setQuarterly({
+          quarter,
+          fyStartYear,
+          actual: repQuarter?.actual ?? 0,
+          target: repQuarter?.target ?? null,
+          tierReached: bonus.tierReached,
+          bonusRate: bonus.bonusRate,
+          bonusAmount: bonus.bonusAmount,
+        })
       })
-      .then((all) => setQuarterly(all.find((q) => q.repOptionId === repId) ?? null))
-      .catch((e) => setError(e.message))
-  }, [repId, year, month])
+      .catch((e) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [staff, year, month])
+
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1
+  const commissionLabel = isCurrentMonth ? 'Commission pending' : 'Commission earned'
 
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>Rep dashboard</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <select value={repId ?? ''} onChange={(e) => setRepId(Number(e.target.value))} style={{ width: 'auto' }}>
+          <select value={staff ?? ''} onChange={(e) => setStaff(e.target.value)} style={{ width: 'auto' }}>
             {reps.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
+              <option key={r} value={r}>
+                {r}
               </option>
             ))}
           </select>
@@ -78,46 +117,39 @@ export function RepDashboard() {
 
       {error && <p className="error-text">{error}</p>}
 
-      {stats && (
+      {monthly && (
         <>
           <div className="stat-row" style={{ marginTop: '1.25rem' }}>
             <div className="stat">
               <div className="label">Actual sales</div>
-              <div className="value">${stats.actualSales.toFixed(2)}</div>
+              <div className="value">${monthly.actual.toFixed(2)}</div>
             </div>
             <div className="stat">
               <div className="label">Individual target</div>
-              <div className="value">{stats.individualTarget != null ? `$${stats.individualTarget.toFixed(2)}` : '—'}</div>
+              <div className="value">{monthly.target != null ? `$${monthly.target.toFixed(2)}` : '—'}</div>
             </div>
             <div className="stat">
               <div className="label">Tier reached</div>
-              <div className="value">{TIER_LABELS[stats.tierReached]}</div>
+              <div className="value">{TIER_LABELS[monthly.tierReached]}</div>
             </div>
             <div className="stat">
-              <div className="label">Monthly commission</div>
-              <div className="value">${stats.monthlyCommission.toFixed(2)}</div>
+              <div className="label">{commissionLabel}</div>
+              <div className="value">${monthly.commissionEarned.toFixed(2)}</div>
             </div>
             <div className="stat">
               <div className="label">Guardsman</div>
               <div className="value">
-                {stats.guardsmanCount} (${stats.guardsmanCommission.toFixed(2)})
+                Sofa {monthly.guardsmanUphCount} / Dining {monthly.guardsmanDtCount} (${monthly.guardsmanCommission.toFixed(2)})
               </div>
             </div>
           </div>
 
-          {stats.individualTarget != null && (
-            <div style={{ marginTop: '1.25rem' }}>
-              <label>Progress toward next tier</label>
-              <TierBar stats={stats} />
-            </div>
+          {monthly.target == null && (
+            <p className="error-text" style={{ marginTop: '1rem' }}>
+              No target set for this rep this month — enter shifts and a store target in Targets & Shifts admin.
+            </p>
           )}
         </>
-      )}
-
-      {!stats?.individualTarget && stats && (
-        <p className="error-text" style={{ marginTop: '1rem' }}>
-          No target set for this rep this month — enter shifts and a store target in Admin settings.
-        </p>
       )}
 
       {quarterly && (
@@ -128,7 +160,7 @@ export function RepDashboard() {
           <div className="stat-row" style={{ marginTop: '1rem' }}>
             <div className="stat">
               <div className="label">Cumulative sales</div>
-              <div className="value">${quarterly.actualSales.toFixed(2)}</div>
+              <div className="value">${quarterly.actual.toFixed(2)}</div>
             </div>
             <div className="stat">
               <div className="label">Highest tier</div>
@@ -145,17 +177,6 @@ export function RepDashboard() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function TierBar({ stats }: { stats: RepMonthlyStats }) {
-  const target = stats.individualTarget ?? 0
-  const max = stats.tier75 ?? target * 1.75
-  const pct = max > 0 ? Math.min(100, (stats.actualSales / max) * 100) : 0
-  return (
-    <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '0.6rem', height: '1.5rem', position: 'relative' }}>
-      <div style={{ background: 'var(--accent)', height: '100%', borderRadius: '0.6rem', width: `${pct}%` }} />
     </div>
   )
 }
