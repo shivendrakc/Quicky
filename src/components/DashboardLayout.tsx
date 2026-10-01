@@ -23,7 +23,7 @@ export default function DashboardLayout() {
   return (
     <div className="flex h-screen bg-[var(--bg)] text-[var(--text)] overflow-hidden w-full font-sans">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-[var(--border)] bg-[rgba(30,41,59,0.3)] backdrop-blur-md">
+      <aside className="hidden md:flex flex-col w-64 border-r border-[var(--border)] bg-[rgba(58,42,29,0.3)] backdrop-blur-md">
         <div className="p-6 border-b border-[var(--border)]">
           <NavLink to="/" className="flex items-center gap-3 no-underline group">
             <div className="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center shadow-lg shadow-[var(--accent)]/20 group-hover:scale-105 transition-transform">

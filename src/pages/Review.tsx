@@ -170,13 +170,13 @@ const Review = () => {
     const getActionBadge = (action: string) => {
         switch (action) {
             case 'add':
-                return <span className="bg-[#38bdf8]/30 text-[#f8fafc] border border-[#38bdf8]/50 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Add quick ship</span>
+                return <span className="bg-[#d98b4f]/30 text-[#f6ecdd] border border-[#d98b4f]/50 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Add quick ship</span>
             case 'remove':
-                return <span className="bg-[#1e293b]/30 text-[#f8fafc] border border-[#1e293b]/50 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Remove quick ship</span>
+                return <span className="bg-[#3a2a1d]/30 text-[#f6ecdd] border border-[#3a2a1d]/50 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Remove quick ship</span>
             case 'new':
-                return <span className="bg-[rgba(30,41,59,0.5)] text-[#f8fafc] border border-[#f8fafc]/20 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">New product</span>
+                return <span className="bg-[rgba(58,42,29,0.5)] text-[#f6ecdd] border border-[#f6ecdd]/20 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">New product</span>
             case 'unmatched':
-                return <span className="bg-[#0f172a]/60 text-[#f8fafc] border border-[#f8fafc]/20 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Unmatched</span>
+                return <span className="bg-[#1c140d]/60 text-[#f6ecdd] border border-[#f6ecdd]/20 text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">Unmatched</span>
             default:
                 return null
         }
@@ -214,7 +214,7 @@ const Review = () => {
 
     return (
         <div className="min-h-screen bg-transparent p-4 sm:p-8">
-            <div className="max-w-6xl mx-auto bg-[rgba(30,41,59,0.5)] backdrop-blur-xl border-2 border-[#1e293b]/60 rounded-[2rem] p-6 sm:p-10 shadow-[0_8px_32px_rgba(129,166,198,0.15)] relative">
+            <div className="max-w-6xl mx-auto bg-[rgba(58,42,29,0.5)] backdrop-blur-xl border-2 border-[#3a2a1d]/60 rounded-[2rem] p-6 sm:p-10 shadow-[0_8px_32px_rgba(94,58,27,0.25)] relative">
 
                 {/* Success Message Banner */}
                 {successMessage && (
@@ -224,13 +224,13 @@ const Review = () => {
                 )}
 
                 <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-3xl font-extrabold text-[#f8fafc] tracking-tight">Review actions</h1>
+                    <h1 className="text-3xl font-extrabold text-[#f6ecdd] tracking-tight">Review actions</h1>
                     <div className="flex gap-3">
                         {hasNewFile && (
                             <button
                                 onClick={handleSetAsBaseForNextTime}
                                 disabled={savingBase}
-                                className="bg-[#38bdf8]/10 hover:bg-[#38bdf8]/20 text-[#38bdf8] border border-[#38bdf8]/30 shadow-sm text-sm px-4 py-2.5 rounded-2xl transition-all font-bold active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                                className="bg-[#d98b4f]/10 hover:bg-[#d98b4f]/20 text-[#d98b4f] border border-[#d98b4f]/30 shadow-sm text-sm px-4 py-2.5 rounded-2xl transition-all font-bold active:scale-95 disabled:opacity-50 flex items-center gap-2"
                             >
                                 {savingBase ? (
                                     <>
@@ -244,7 +244,7 @@ const Review = () => {
                         )}
                         <button
                             onClick={handleExport}
-                            className="bg-[#f8fafc] hover:bg-[#38bdf8] text-[#0f172a] shadow-md shadow-[#f8fafc]/30 text-sm px-6 py-2.5 rounded-2xl transition-all font-bold active:scale-95 border border-transparent"
+                            className="bg-[#f6ecdd] hover:bg-[#d98b4f] text-[#1c140d] shadow-md shadow-[#f6ecdd]/30 text-sm px-6 py-2.5 rounded-2xl transition-all font-bold active:scale-95 border border-transparent"
                         >
                             Export CSV
                         </button>
@@ -253,57 +253,57 @@ const Review = () => {
 
                 <div className="flex flex-col mb-8 mt-4 gap-2">
                     <div className="flex items-center gap-3">
-                        <span className="text-xs uppercase tracking-wider font-bold text-[#f8fafc]/40 w-16">Base</span>
-                        <span className="text-sm font-semibold text-[#f8fafc]/80 bg-[#1e293b]/50 px-3 py-1 rounded-lg border border-[#1e293b]">{baseFileName}</span>
+                        <span className="text-xs uppercase tracking-wider font-bold text-[#f6ecdd]/40 w-16">Base</span>
+                        <span className="text-sm font-semibold text-[#f6ecdd]/80 bg-[#3a2a1d]/50 px-3 py-1 rounded-lg border border-[#3a2a1d]">{baseFileName}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className="text-xs uppercase tracking-wider font-bold text-[#f8fafc]/40 w-16">New</span>
-                        <span className="text-sm font-semibold text-[#38bdf8] bg-[#38bdf8]/10 px-3 py-1 rounded-lg border border-[#38bdf8]/30">{newFileName}</span>
+                        <span className="text-xs uppercase tracking-wider font-bold text-[#f6ecdd]/40 w-16">New</span>
+                        <span className="text-sm font-semibold text-[#d98b4f] bg-[#d98b4f]/10 px-3 py-1 rounded-lg border border-[#d98b4f]/30">{newFileName}</span>
                     </div>
                 </div>
 
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20">
-                        <div className="w-12 h-12 border-4 border-[#38bdf8] border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="text-[#f8fafc]/80 font-bold">Loading snapshots from cloud...</p>
+                        <div className="w-12 h-12 border-4 border-[#d98b4f] border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="text-[#f6ecdd]/80 font-bold">Loading snapshots from cloud...</p>
                     </div>
                 ) : (
                     <>
                         {/* Summary bar */}
-                        <div className="flex gap-6 mb-8 bg-[rgba(30,41,59,0.5)] backdrop-blur-md border border-[#1e293b]/60 rounded-3xl p-5 shadow-sm">
+                        <div className="flex gap-6 mb-8 bg-[rgba(58,42,29,0.5)] backdrop-blur-md border border-[#3a2a1d]/60 rounded-3xl p-5 shadow-sm">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#38bdf8] shadow-sm"></div>
-                                <span className="text-sm font-bold text-[#f8fafc]">{count('add')} to add</span>
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#d98b4f] shadow-sm"></div>
+                                <span className="text-sm font-bold text-[#f6ecdd]">{count('add')} to add</span>
                             </div>
                             <div className="flex items-center gap-2.5">
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#1e293b] shadow-sm"></div>
-                                <span className="text-sm font-bold text-[#f8fafc]">{count('remove')} to remove</span>
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#3a2a1d] shadow-sm"></div>
+                                <span className="text-sm font-bold text-[#f6ecdd]">{count('remove')} to remove</span>
                             </div>
                             <div className="flex items-center gap-2.5">
-                                <div className="w-2.5 h-2.5 rounded-full bg-white border border-[#38bdf8] shadow-sm"></div>
-                                <span className="text-sm font-bold text-[#f8fafc]">{count('new')} new products</span>
+                                <div className="w-2.5 h-2.5 rounded-full bg-white border border-[#d98b4f] shadow-sm"></div>
+                                <span className="text-sm font-bold text-[#f6ecdd]">{count('new')} new products</span>
                             </div>
                             <div className="flex items-center gap-2.5">
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#0f172a] shadow-sm"></div>
-                                <span className="text-sm font-bold text-[#f8fafc]">{count('unmatched')} unmatched</span>
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#1c140d] shadow-sm"></div>
+                                <span className="text-sm font-bold text-[#f6ecdd]">{count('unmatched')} unmatched</span>
                             </div>
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex gap-2 border-b-2 border-[#1e293b]/30 mb-6 pb-2">
+                        <div className="flex gap-2 border-b-2 border-[#3a2a1d]/30 mb-6 pb-2">
                             {tabs.map(tab => (
                                 <button
                                     key={tab.key}
                                     onClick={() => setActiveTab(tab.key)}
                                     className={`px-5 py-2.5 text-sm rounded-2xl transition-all font-bold ${activeTab === tab.key
-                                        ? 'bg-[#f8fafc] text-[#0f172a] shadow-md shadow-[#f8fafc]/20'
-                                        : 'bg-transparent text-[#f8fafc]/70 hover:bg-[rgba(30,41,59,0.5)] hover:text-[#f8fafc]'
+                                        ? 'bg-[#f6ecdd] text-[#1c140d] shadow-md shadow-[#f6ecdd]/20'
+                                        : 'bg-transparent text-[#f6ecdd]/70 hover:bg-[rgba(58,42,29,0.5)] hover:text-[#f6ecdd]'
                                         }`}
                                 >
                                     {tab.label}
                                     <span className={`ml-2 text-xs px-2 py-1 rounded-full ${activeTab === tab.key
-                                        ? 'bg-[#0f172a]/30 text-[#0f172a]'
-                                        : 'bg-[rgba(30,41,59,0.5)] text-[#f8fafc]'
+                                        ? 'bg-[#1c140d]/30 text-[#1c140d]'
+                                        : 'bg-[rgba(58,42,29,0.5)] text-[#f6ecdd]'
                                         }`}>
                                         {count(tab.key)}
                                     </span>
@@ -318,12 +318,12 @@ const Review = () => {
                         placeholder="Search product..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="bg-[rgba(30,41,59,0.5)] border border-[#1e293b] focus:border-[#38bdf8] focus:outline-none focus:ring-4 focus:ring-[#38bdf8]/30 rounded-2xl px-4 py-2.5 text-sm w-64 text-[#f8fafc] placeholder-[#f8fafc]/50 font-bold transition-all"
+                        className="bg-[rgba(58,42,29,0.5)] border border-[#3a2a1d] focus:border-[#d98b4f] focus:outline-none focus:ring-4 focus:ring-[#d98b4f]/30 rounded-2xl px-4 py-2.5 text-sm w-64 text-[#f6ecdd] placeholder-[#f6ecdd]/50 font-bold transition-all"
                     />
                     <select
                         value={categoryFilter}
                         onChange={e => setCategoryFilter(e.target.value)}
-                        className="bg-[rgba(30,41,59,0.5)] border border-[#1e293b] focus:border-[#38bdf8] focus:outline-none focus:ring-4 focus:ring-[#38bdf8]/30 rounded-2xl px-4 py-2.5 text-sm text-[#f8fafc] font-bold transition-all appearance-none outline-none"
+                        className="bg-[rgba(58,42,29,0.5)] border border-[#3a2a1d] focus:border-[#d98b4f] focus:outline-none focus:ring-4 focus:ring-[#d98b4f]/30 rounded-2xl px-4 py-2.5 text-sm text-[#f6ecdd] font-bold transition-all appearance-none outline-none"
                     >
                         <option value="">All categories</option>
                         <option>Normal item</option>
@@ -332,47 +332,47 @@ const Review = () => {
                 </div>
 
                 {/* Table */}
-                <div className="bg-[rgba(30,41,59,0.5)] backdrop-blur-sm border border-[#1e293b]/60 rounded-3xl overflow-hidden shadow-sm">
+                <div className="bg-[rgba(58,42,29,0.5)] backdrop-blur-sm border border-[#3a2a1d]/60 rounded-3xl overflow-hidden shadow-sm">
                     <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
                         <thead>
-                            <tr className="bg-[#0f172a]/40 border-b border-[#1e293b]/50">
-                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f8fafc] uppercase tracking-wider" style={{ width: '28%' }}>Product name</th>
-                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f8fafc] uppercase tracking-wider" style={{ width: '13%' }}>Category</th>
-                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f8fafc] uppercase tracking-wider" style={{ width: '10%' }}>Prev stock</th>
-                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f8fafc] uppercase tracking-wider" style={{ width: '10%' }}>Curr stock</th>
-                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f8fafc] uppercase tracking-wider" style={{ width: '10%' }}>Threshold</th>
-                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f8fafc] uppercase tracking-wider" style={{ width: '16%' }}>Action</th>
-                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f8fafc] uppercase tracking-wider" style={{ width: '13%' }}>Reason</th>
+                            <tr className="bg-[#1c140d]/40 border-b border-[#3a2a1d]/50">
+                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f6ecdd] uppercase tracking-wider" style={{ width: '28%' }}>Product name</th>
+                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f6ecdd] uppercase tracking-wider" style={{ width: '13%' }}>Category</th>
+                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f6ecdd] uppercase tracking-wider" style={{ width: '10%' }}>Prev stock</th>
+                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f6ecdd] uppercase tracking-wider" style={{ width: '10%' }}>Curr stock</th>
+                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f6ecdd] uppercase tracking-wider" style={{ width: '10%' }}>Threshold</th>
+                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f6ecdd] uppercase tracking-wider" style={{ width: '16%' }}>Action</th>
+                                <th className="text-left py-4 px-5 text-xs font-bold text-[#f6ecdd] uppercase tracking-wider" style={{ width: '13%' }}>Reason</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#1e293b]/30">
+                        <tbody className="divide-y divide-[#3a2a1d]/30">
                             {filtered.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-16 text-[#f8fafc]/60 text-sm font-bold">
+                                    <td colSpan={7} className="text-center py-16 text-[#f6ecdd]/60 text-sm font-bold">
                                         No items match this filter
                                     </td>
                                 </tr>
                             ) : (
                                 filtered.map((r, i) => (
-                                    <tr key={i} className="hover:bg-[rgba(30,41,59,0.5)] transition-colors">
-                                        <td className="py-4 px-5 font-bold text-[#f8fafc] truncate" title={r.name}>{r.name}</td>
+                                    <tr key={i} className="hover:bg-[rgba(58,42,29,0.5)] transition-colors">
+                                        <td className="py-4 px-5 font-bold text-[#f6ecdd] truncate" title={r.name}>{r.name}</td>
                                         <td className="py-4 px-5">
                                             <span className={`text-xs px-2.5 py-1 rounded-full font-bold border ${r.category === 'Dining chair'
-                                                ? 'bg-[#38bdf8]/20 text-[#f8fafc] border-[#38bdf8]/50'
-                                                : 'bg-[rgba(30,41,59,0.5)] text-[#f8fafc] border-[#1e293b]/50'
+                                                ? 'bg-[#d98b4f]/20 text-[#f6ecdd] border-[#d98b4f]/50'
+                                                : 'bg-[rgba(58,42,29,0.5)] text-[#f6ecdd] border-[#3a2a1d]/50'
                                                 }`}>
                                                 {r.category === 'Dining chair' ? 'Chair' : 'Normal'}
                                             </span>
                                         </td>
-                                        <td className="py-4 px-5 font-semibold text-[#f8fafc]/80">{r.previousStock}</td>
-                                        <td className={`py-4 px-5 font-bold ${r.currentStock > r.previousStock ? 'text-[#38bdf8]' :
-                                            r.currentStock < r.previousStock ? 'text-[#1e293b]' : 'text-[#f8fafc]'
+                                        <td className="py-4 px-5 font-semibold text-[#f6ecdd]/80">{r.previousStock}</td>
+                                        <td className={`py-4 px-5 font-bold ${r.currentStock > r.previousStock ? 'text-[#d98b4f]' :
+                                            r.currentStock < r.previousStock ? 'text-[#3a2a1d]' : 'text-[#f6ecdd]'
                                             }`}>
                                             {r.currentStock}
                                         </td>
-                                        <td className="py-4 px-5 font-semibold text-[#f8fafc]/80">{r.threshold}</td>
+                                        <td className="py-4 px-5 font-semibold text-[#f6ecdd]/80">{r.threshold}</td>
                                         <td className="py-4 px-5">{getActionBadge(r.action)}</td>
-                                        <td className="py-4 px-5 font-semibold text-[#f8fafc]/60 text-xs truncate" title={r.reason}>{r.reason}</td>
+                                        <td className="py-4 px-5 font-semibold text-[#f6ecdd]/60 text-xs truncate" title={r.reason}>{r.reason}</td>
                                     </tr>
                                 ))
                             )}

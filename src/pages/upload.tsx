@@ -177,22 +177,22 @@ const Upload = () => {
             : "Latest export to analyze"
 
         return (
-            <div className="flex-1 flex flex-col min-w-0 bg-[rgba(30,41,59,0.3)] border border-[#1e293b]/60 rounded-[2rem] p-6 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#38bdf8]/50 to-transparent opacity-0 transition-opacity"></div>
+            <div className="flex-1 flex flex-col min-w-0 bg-[rgba(58,42,29,0.3)] border border-[#3a2a1d]/60 rounded-[2rem] p-6 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#d98b4f]/50 to-transparent opacity-0 transition-opacity"></div>
                 <div className="mb-4">
-                    <h2 className="text-xl font-bold text-[#f8fafc] flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-[#f6ecdd] flex items-center gap-2">
                         {isBase ? '🏛️' : '🆕'} {title}
                     </h2>
-                    <p className="text-xs font-semibold text-[#f8fafc]/50 mt-1">{desc}</p>
+                    <p className="text-xs font-semibold text-[#f6ecdd]/50 mt-1">{desc}</p>
                 </div>
 
                 {/* Active File Banner */}
                 {activeName ? (
-                    <div className="mb-4 rounded-xl p-4 flex items-center justify-between border border-[#38bdf8]/30 bg-[#38bdf8]/5">
+                    <div className="mb-4 rounded-xl p-4 flex items-center justify-between border border-[#d98b4f]/30 bg-[#d98b4f]/5">
                         <div className="min-w-0 pr-4">
-                            <p className="text-xs font-bold text-[#38bdf8] uppercase tracking-wider mb-1">Loaded</p>
-                            <p className="text-sm font-bold text-[#f8fafc] truncate">{activeName}</p>
-                            <p className="text-xs font-semibold text-[#f8fafc]/50 mt-0.5 truncate">
+                            <p className="text-xs font-bold text-[#d98b4f] uppercase tracking-wider mb-1">Loaded</p>
+                            <p className="text-sm font-bold text-[#f6ecdd] truncate">{activeName}</p>
+                            <p className="text-xs font-semibold text-[#f6ecdd]/50 mt-0.5 truncate">
                                 {activeDate ? new Date(activeDate).toLocaleString() : ''}
                             </p>
                         </div>
@@ -206,8 +206,8 @@ const Upload = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="mb-4 rounded-xl p-4 border border-dashed border-[#1e293b] flex items-center justify-center bg-[#0f172a]/30 h-[82px]">
-                        <p className="text-xs font-bold text-[#f8fafc]/30">No file loaded</p>
+                    <div className="mb-4 rounded-xl p-4 border border-dashed border-[#3a2a1d] flex items-center justify-center bg-[#1c140d]/30 h-[82px]">
+                        <p className="text-xs font-bold text-[#f6ecdd]/30">No file loaded</p>
                     </div>
                 )}
 
@@ -218,14 +218,14 @@ const Upload = () => {
                     onDrop={e => handleDrop(e, slot)}
                     className={`flex-1 border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 flex flex-col items-center justify-center min-h-[160px] ${
                         dragActive
-                        ? 'border-[#38bdf8] bg-[#38bdf8]/10 scale-[1.02]'
-                        : 'border-[#1e293b] hover:border-[#f8fafc]/30 bg-[rgba(30,41,59,0.3)]'
+                        ? 'border-[#d98b4f] bg-[#d98b4f]/10 scale-[1.02]'
+                        : 'border-[#3a2a1d] hover:border-[#f6ecdd]/30 bg-[rgba(58,42,29,0.3)]'
                     }`}
                 >
                     {status === 'parsing' || status === 'saving' ? (
                         <div className="flex flex-col items-center justify-center">
-                            <div className="w-8 h-8 border-4 border-[#38bdf8] border-t-transparent rounded-full animate-spin mb-3"></div>
-                            <p className="text-sm font-bold text-[#38bdf8]">
+                            <div className="w-8 h-8 border-4 border-[#d98b4f] border-t-transparent rounded-full animate-spin mb-3"></div>
+                            <p className="text-sm font-bold text-[#d98b4f]">
                                 {status === 'parsing' ? 'Reading file...' : 'Saving to cloud...'}
                             </p>
                         </div>
@@ -239,8 +239,8 @@ const Upload = () => {
                     ) : (
                         <>
                             <div className="text-3xl mb-3 opacity-80" style={{ animation: dragActive ? 'pulse 2s infinite' : 'float 3s ease-in-out infinite' }}>📂</div>
-                            <p className="text-xs font-bold text-[#f8fafc]/70 mb-4 px-2">Drag and drop, or browse</p>
-                            <label className="bg-[#1e293b] hover:bg-[#38bdf8] hover:text-[#0f172a] text-[#f8fafc] text-xs px-5 py-2.5 rounded-lg font-bold transition-all cursor-pointer shadow-sm active:scale-95">
+                            <p className="text-xs font-bold text-[#f6ecdd]/70 mb-4 px-2">Drag and drop, or browse</p>
+                            <label className="bg-[#3a2a1d] hover:bg-[#d98b4f] hover:text-[#1c140d] text-[#f6ecdd] text-xs px-5 py-2.5 rounded-lg font-bold transition-all cursor-pointer shadow-sm active:scale-95">
                                 Browse file
                                 <input
                                     type="file"
@@ -267,8 +267,8 @@ const Upload = () => {
         <div className="min-h-screen p-4 sm:p-8">
             <div className="max-w-4xl mx-auto">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-extrabold text-[#f8fafc] tracking-tight mb-2">Configure Analysis</h1>
-                    <p className="text-sm font-semibold text-[#f8fafc]/60 max-w-xl">
+                    <h1 className="text-3xl font-extrabold text-[#f6ecdd] tracking-tight mb-2">Configure Analysis</h1>
+                    <p className="text-sm font-semibold text-[#f6ecdd]/60 max-w-xl">
                         Upload a historical file alongside today's export. If you only upload a New File, it will exclusively check for valid initial thresholds.
                     </p>
                 </div>
@@ -279,11 +279,11 @@ const Upload = () => {
                 </div>
 
                 {/* Compare Action */}
-                <div className="flex justify-end pt-4 border-t border-[#1e293b]/50">
+                <div className="flex justify-end pt-4 border-t border-[#3a2a1d]/50">
                     <button
                         onClick={() => navigate('/dashboard/review')}
                         disabled={!newFileName && !baseFileName}
-                        className="bg-[#f8fafc] hover:bg-[#38bdf8] text-[#0f172a] shadow-lg shadow-[#f8fafc]/10 text-sm px-8 py-3.5 rounded-2xl transition-all font-extrabold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent flex items-center gap-2 group"
+                        className="bg-[#f6ecdd] hover:bg-[#d98b4f] text-[#1c140d] shadow-lg shadow-[#f6ecdd]/10 text-sm px-8 py-3.5 rounded-2xl transition-all font-extrabold active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent flex items-center gap-2 group"
                     >
                         Process and compare
                         <span className="group-hover:translate-x-1 transition-transform">→</span>
